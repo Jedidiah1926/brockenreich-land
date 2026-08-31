@@ -21,6 +21,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
+import org.bukkit.event.entity.ExplosionPrimeEvent
 import org.bukkit.event.entity.LingeringPotionSplashEvent
 import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
@@ -221,8 +222,24 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // TNT, end crystals, creepers, withers, etc. Protects block by block, so an explosion
-    // straddling the boundary still damages the unprotected side normally.
+    // Fires before the explosion actually happens (sound/particles included), for any exploding
+    // entity (TNT, creeper, end crystal, wither, fireballs, ...). If the entity itself is inside an
+    // EXPLOSION-protected area, cancel the explosion outright - no sound, particles, damage, or
+    // block loss anywhere. This is all-or-nothing (unlike the block-list filtering below): by the
+    // time EntityExplodeEvent fires, the sound/particle packets have already been sent to nearby
+    // clients, so there's no way to suppress those only for the protected side of a boundary that
+    // an explosion straddles.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onExplosionPrime(event: ExplosionPrimeEvent) {
+        if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.EXPLOSION)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Backstop for explosions that weren't primed inside a protected area but still reach one
+    // (e.g. TNT exploding just outside the boundary). Protects block by block, so an explosion
+    // straddling the boundary still damages the unprotected side normally - sound/particles from
+    // that already-happened explosion play regardless, per the note above.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onEntityExplode(event: EntityExplodeEvent) {
         event.blockList().removeIf { block ->
