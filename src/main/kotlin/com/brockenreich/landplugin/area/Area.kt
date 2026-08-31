@@ -54,9 +54,11 @@ class Area(val target: AreaTarget, var world: String) {
         val max = this.max ?: return false
         val locWorld = location.world?.name ?: return false
         if (locWorld != min.world?.name) return false
-        return location.x >= min.x && location.x <= max.x &&
-            location.y >= min.y && location.y <= max.y &&
-            location.z >= min.z && location.z <= max.z
+        // Compare block coordinates (both min/max are inclusive block corners from WorldEdit),
+        // not raw continuous coordinates - otherwise the block spanning [max, max+1) is missed.
+        return location.blockX >= min.blockX && location.blockX <= max.blockX &&
+            location.blockY >= min.blockY && location.blockY <= max.blockY &&
+            location.blockZ >= min.blockZ && location.blockZ <= max.blockZ
     }
 
     fun isMember(player: OfflinePlayer): Boolean = members.contains(player.uniqueId)

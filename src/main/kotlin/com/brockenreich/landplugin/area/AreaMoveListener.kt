@@ -25,13 +25,11 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         if (fromArea === toArea) return
 
         if (!fromArea.canExit(player)) {
-            player.sendMessage("§c이 구역을 나갈 수 없습니다.")
             event.isCancelled = true
             return
         }
 
         if (!toArea.canEnter(player)) {
-            player.sendMessage("§c이 구역에 들어갈 수 없습니다.")
             event.isCancelled = true
         }
     }
