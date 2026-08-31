@@ -41,6 +41,8 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
     // PlayerMoveEvent does not fire while a player is riding a vehicle - a boat moves via
     // VehicleMoveEvent instead, with its passengers along for the ride, so entrance/exit is
     // checked separately here (using dedicated boatEntrance/boatExit permissions) for boats.
+    // VehicleMoveEvent isn't Cancellable, so a denied move is undone by teleporting the boat
+    // back to its previous location instead of setting isCancelled.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onVehicleMove(event: VehicleMoveEvent) {
         if (event.vehicle !is Boat) return
@@ -60,13 +62,10 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         val toArea = areaManager.areaAt(to)
         if (fromArea === toArea) return
 
-        if (players.any { !fromArea.can(it, AreaPermission.BOAT_EXIT) }) {
-            event.isCancelled = true
-            return
-        }
-
-        if (players.any { !toArea.can(it, AreaPermission.BOAT_ENTRANCE) }) {
-            event.isCancelled = true
+        val denied = players.any { !fromArea.can(it, AreaPermission.BOAT_EXIT) } ||
+            players.any { !toArea.can(it, AreaPermission.BOAT_ENTRANCE) }
+        if (denied) {
+            event.vehicle.teleport(from)
         }
     }
 
