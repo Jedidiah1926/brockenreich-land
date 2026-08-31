@@ -11,11 +11,13 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockIgniteEvent
+import org.bukkit.event.block.BlockExplodeEvent
 import org.bukkit.event.block.BlockFromToEvent
 import org.bukkit.event.block.BlockPistonExtendEvent
 import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
 import org.bukkit.event.entity.LingeringPotionSplashEvent
 import org.bukkit.event.entity.PotionSplashEvent
@@ -189,6 +191,23 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     fun onLingeringPotionSplash(event: LingeringPotionSplashEvent) {
         if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.POTION)) {
             event.isCancelled = true
+        }
+    }
+
+    // TNT, end crystals, creepers, withers, etc. Protects block by block, so an explosion
+    // straddling the boundary still damages the unprotected side normally.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onEntityExplode(event: EntityExplodeEvent) {
+        event.blockList().removeIf { block ->
+            areaManager.areaAt(block.location).protections.contains(AreaProtection.EXPLOSION)
+        }
+    }
+
+    // Beds/respawn anchors exploding outside their valid dimension.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockExplode(event: BlockExplodeEvent) {
+        event.blockList().removeIf { block ->
+            areaManager.areaAt(block.location).protections.contains(AreaProtection.EXPLOSION)
         }
     }
 }
