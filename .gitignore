@@ -1,0 +1,20 @@
+.gradle/
+build/
+out/
+.kotlin/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/.classpath
+.vscode/.factorypath
+.vscode/.project
+.vscode/.settings/
+bin/
+
+# Local test server
+run/
+
+# OS
+.DS_Store

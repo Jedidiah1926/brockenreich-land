@@ -1,0 +1,5 @@
+{
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "kotlin.compiler.jvm.target": "21",
+  "java.compile.nullAnalysis.mode": "automatic"
+}

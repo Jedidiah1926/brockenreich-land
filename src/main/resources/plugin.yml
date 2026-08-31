@@ -1,0 +1,6 @@
+name: BrockenreichLand
+version: '${version}'
+main: com.brockenreich.landplugin.LandPlugin
+api-version: '1.21'
+author: hiblessing
+description: Brockenreich Land plugin for Paper 1.21.8
