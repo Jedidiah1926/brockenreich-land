@@ -17,6 +17,7 @@ import org.bukkit.event.block.BlockFromToEvent
 import org.bukkit.event.block.BlockPistonExtendEvent
 import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.entity.AreaEffectCloudApplyEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
@@ -219,6 +220,17 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     fun onLingeringPotionSplash(event: LingeringPotionSplashEvent) {
         if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.POTION)) {
             event.isCancelled = true
+        }
+    }
+
+    // A lingering cloud that formed outside a protected area can still grow and drift so its
+    // radius reaches into one over time. This fires every time the cloud pulses and is about to
+    // apply its effect, so re-checking each affected entity's current location here (rather than
+    // only where the cloud was created) catches that case too.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onAreaEffectCloudApply(event: AreaEffectCloudApplyEvent) {
+        event.affectedEntities.removeIf { entity ->
+            areaManager.areaAt(entity.location).protections.contains(AreaProtection.POTION)
         }
     }
 
