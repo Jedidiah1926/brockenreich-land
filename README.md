@@ -69,26 +69,45 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 
 - **구역(region)**: WorldEdit으로 선택한 직육면체 영역에 이름을 붙인 것.
 - **월드 기본 구역(world)**: 어떤 구역에도 속하지 않는, 월드의 나머지 모든 공간. `world:<월드이름>` 으로 지정.
-- **멤버(member)**: 해당 구역에 항상 입장/퇴장 가능한 플레이어 목록.
-- **`@everyone` 권한(entrance/exit)**: 멤버가 아닌 모든 플레이어에게 입장(`entrance`)/퇴장(`exit`)을 허용할지 여부. 기본값은 둘 다 허용.
-- **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능).
+- **멤버(member)**: 해당 구역에서 모든 권한을 항상 허용받는 플레이어 목록.
+- **`@everyone` 권한**: 멤버가 아닌 모든 플레이어에게 적용되는 기본 권한. 새 구역은 `administration` 을 제외한 모든 권한이 기본 허용 상태로 시작합니다.
+- **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능 — 합집합 방식, 뺏는 방향으로는 동작하지 않음).
+
+### 권한 목록
+
+| 권한 | 설명 |
+|---|---|
+| `entrance` | 구역에 들어갈 수 있는가 |
+| `exit` | 구역에서 나갈 수 있는가 |
+| `interaction` | 상호작용 (버튼, 상자 등 우클릭) |
+| `pickupItem` | 아이템 줍기 |
+| `dropItem` | 아이템 던지기 |
+| `blockBreak` | 블록 부수기 |
+| `blockPlace` | 블록 설치하기 |
+| `blockIgniting` | 블록에 불 붙이기 |
+| `hangingPlace` | 액자/그림 등 걸이형 블록 설치 |
+| `hangingBreak` | 액자/그림 등 걸이형 블록 파괴 |
+| `projectileLaunch` | 발사체 발사 (활, 눈덩이 등) |
+| `attackEntity` | 엔티티(몹 등) 공격 |
+| `attackPlayer` | 플레이어 공격 |
+| `bucketEmpty` | 양동이 비우기 |
+| `bucketFill` | 양동이 채우기 |
+| `administration` | 이 구역 안에서 다른 모든 권한 검사를 무시하는 와일드카드 권한 (기본값: 비허용) |
 
 ```
 /area region create <이름>                             # 현재 WorldEdit 선택 영역으로 region:<이름> 생성
 /area region delete <이름>
-/area world create <월드이름>                           # world:<월드이름> 등록 (기본: entrance/exit 모두 허용)
+/area world create <월드이름>                           # world:<월드이름> 등록 (기본: administration 제외 모든 권한 허용)
 /area world delete <월드이름>                           # world:<월드이름> 을 기본값으로 초기화
 /area list
 /area info <region:이름|world:월드이름>
 /area modify <target> member add <닉네임>
 /area modify <target> member remove <닉네임>
-/area modify <target> role permission @everyone add <entrance|exit>
-/area modify <target> role permission @everyone remove <entrance|exit>
-/area modify <target> role permission <닉네임> add <entrance|exit>
-/area modify <target> role permission <닉네임> remove <entrance|exit>
+/area modify <target> role permission @everyone <add|remove> <권한>
+/area modify <target> role permission <닉네임> <add|remove> <권한>
 ```
 
-역할(`@everyone` 등)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.
+역할(`@everyone`)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.
 
 예시:
 ```
@@ -97,10 +116,10 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area world create world
 /area modify world:world role permission @everyone remove entrance
 /area modify world:world role permission Alex add entrance
+/area modify region:green role permission @everyone remove blockBreak
 ```
-→ `green` 구역은 `Steve`가 항상 드나들 수 있고, `world` 월드에서 구역으로 지정되지 않은 나머지 공간은
+→ `green` 구역은 `Steve`가 항상 모든 걸 할 수 있고, `world` 월드에서 구역으로 지정되지 않은 나머지 공간은
 `@everyone`(월드의 멤버가 아닌 모든 플레이어)의 입장이 차단되지만, `Alex`는 개별로 입장이 허용되어
-`@everyone` 설정과 무관하게 들어갈 수 있습니다. 새로 등록되는 월드/구역은
-entrance·exit 권한이 기본적으로 둘 다 허용된 상태로 시작합니다.
+`@everyone` 설정과 무관하게 들어갈 수 있습니다. `green` 구역에서는 `@everyone`(멤버 제외)의 블록 파괴가 막힙니다.
 
 전부 관리자(OP) 전용 명령이며, 설정은 `plugins/BrockenreichLand/areas.yml` 에 저장됩니다.

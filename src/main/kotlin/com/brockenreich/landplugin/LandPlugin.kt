@@ -3,6 +3,7 @@ package com.brockenreich.landplugin
 import com.brockenreich.landplugin.area.AreaCommand
 import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
+import com.brockenreich.landplugin.area.AreaProtectionListener
 import org.bukkit.plugin.java.JavaPlugin
 
 class LandPlugin : JavaPlugin() {
@@ -21,6 +22,7 @@ class LandPlugin : JavaPlugin() {
         }
 
         server.pluginManager.registerEvents(AreaMoveListener(areaManager), this)
+        server.pluginManager.registerEvents(AreaProtectionListener(areaManager), this)
 
         logger.info("BrockenreichLand enabled.")
     }

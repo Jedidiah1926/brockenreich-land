@@ -34,16 +34,17 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e--- /area 사용법 ---")
         sender.sendMessage("§e/area region create <이름> §7- WorldEdit 선택 영역으로 region:<이름> 생성")
         sender.sendMessage("§e/area region delete <이름>")
-        sender.sendMessage("§e/area world create <월드이름> §7- world:<월드이름> 등록 (기본: entrance/exit 모두 허용)")
+        sender.sendMessage("§e/area world create <월드이름> §7- world:<월드이름> 등록 (기본: administration 제외 모든 권한 허용)")
         sender.sendMessage("§e/area world delete <월드이름> §7- world:<월드이름> 을 기본값으로 초기화")
         sender.sendMessage("§e/area list")
         sender.sendMessage("§e/area info <region:이름|world:월드이름>")
         sender.sendMessage("§e/area modify <target> member add <닉네임>")
         sender.sendMessage("§e/area modify <target> member remove <닉네임>")
-        sender.sendMessage("§e/area modify <target> role permission @everyone add <entrance|exit>")
-        sender.sendMessage("§e/area modify <target> role permission @everyone remove <entrance|exit>")
-        sender.sendMessage("§e/area modify <target> role permission <닉네임> add <entrance|exit>")
-        sender.sendMessage("§e/area modify <target> role permission <닉네임> remove <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission @everyone <add|remove> <권한>")
+        sender.sendMessage("§e/area modify <target> role permission <닉네임> <add|remove> <권한>")
+        sender.sendMessage(
+            "§7권한: ${AreaPermission.entries.joinToString(", ") { it.label }}"
+        )
     }
 
     private fun fmt(loc: Location) = "${loc.blockX},${loc.blockY},${loc.blockZ}"
@@ -138,7 +139,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
         areaManager.worldArea(name)
         areaManager.save()
-        sender.sendMessage("§a월드 구역 'world:$name' 을(를) 등록했습니다. (기본: entrance/exit 모두 허용)")
+        sender.sendMessage("§a월드 구역 'world:$name' 을(를) 등록했습니다. (기본: administration 제외 모든 권한 허용)")
     }
 
     private fun handleWorldDelete(sender: CommandSender, args: Array<out String>) {
@@ -148,7 +149,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
         val name = args[2]
         if (areaManager.resetWorldArea(name)) {
-            sender.sendMessage("§a월드 구역 'world:$name' 을(를) 기본값(entrance/exit 모두 허용)으로 초기화했습니다.")
+            sender.sendMessage("§a월드 구역 'world:$name' 을(를) 기본값(administration 제외 모든 권한 허용)으로 초기화했습니다.")
         } else {
             sender.sendMessage("§c등록되어 있지 않은 월드 구역입니다: world:$name")
         }
@@ -195,7 +196,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         val memberNames = area.members.mapNotNull { Bukkit.getOfflinePlayer(it).name }
         sender.sendMessage("§7멤버: ${if (memberNames.isEmpty()) "없음" else memberNames.joinToString(", ")}")
         sender.sendMessage(
-            "§7@everyone 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.name.lowercase() }}"
+            "§7@everyone 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.label }}"
         )
         if (area.playerPermissions.isNotEmpty()) {
             sender.sendMessage("§7개별 허용 권한:")
@@ -203,7 +204,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 if (perms.isEmpty()) return@forEach
                 @Suppress("DEPRECATION")
                 val name = Bukkit.getOfflinePlayer(uuid).name ?: uuid.toString()
-                sender.sendMessage("§7 - $name: ${perms.joinToString(", ") { it.name.lowercase() }}")
+                sender.sendMessage("§7 - $name: ${perms.joinToString(", ") { it.label }}")
             }
         }
     }
@@ -268,14 +269,16 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
 
     private fun handleModifyRole(sender: CommandSender, area: Area, args: Array<out String>) {
         if (args.size < 7 || args[3].lowercase() != "permission") {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <@everyone|닉네임> <add|remove> <entrance|exit>")
+            sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <@everyone|닉네임> <add|remove> <권한>")
             return
         }
         val subject = args[4]
         val action = args[5].lowercase()
         val permission = AreaPermission.parse(args[6])
         if (permission == null) {
-            sender.sendMessage("§c권한은 entrance 또는 exit 이어야 합니다.")
+            sender.sendMessage(
+                "§c알 수 없는 권한입니다: ${args[6]} (사용 가능: ${AreaPermission.entries.joinToString(", ") { it.label }})"
+            )
             return
         }
         if (action != "add" && action != "remove") {
@@ -304,7 +307,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         val verb = if (action == "add") "추가했습니다" else "제거했습니다"
         val subjectPhrase = if (subject.startsWith("@")) "§e[$subject]§f 역할에" else "§e[$subject]§f 님에게"
         sender.sendMessage(
-            "§e[${area.target.key()}]§f 지역의 $subjectPhrase §e[${permission.name.lowercase()}]§f 권한을 $verb."
+            "§e[${area.target.key()}]§f 지역의 $subjectPhrase §e[${permission.label}]§f 권한을 $verb."
         )
         areaManager.save()
     }
@@ -355,7 +358,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 emptyList()
             }
             7 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
-                listOf("entrance", "exit").filter { it.startsWith(args[6].lowercase()) }
+                AreaPermission.entries.map { it.label }.filter { it.startsWith(args[6], ignoreCase = true) }
             } else {
                 emptyList()
             }
