@@ -84,6 +84,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
+            area.protections.addAll(section.getStringList("protections").mapNotNull { AreaProtection.parse(it) })
             regions[key] = area
         }
 
@@ -96,6 +97,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
+            area.protections.addAll(section.getStringList("protections").mapNotNull { AreaProtection.parse(it) })
         }
 
         logger.info("Loaded ${regions.size} region(s) and ${worldAreas.size} world area override(s).")
@@ -134,6 +136,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.playerPermissions.forEach { (uuid, perms) ->
                 yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
             }
+            yaml.set("$base.protections", area.protections.map { it.name })
         }
 
         worldAreas.forEach { (key, area) ->
@@ -143,6 +146,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.playerPermissions.forEach { (uuid, perms) ->
                 yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
             }
+            yaml.set("$base.protections", area.protections.map { it.name })
         }
 
         dataFolder.mkdirs()

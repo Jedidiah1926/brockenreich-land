@@ -42,8 +42,12 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e/area modify <target> member remove <닉네임>")
         sender.sendMessage("§e/area modify <target> role permission @everyone <add|remove> <권한>")
         sender.sendMessage("§e/area modify <target> role permission <닉네임> <add|remove> <권한>")
+        sender.sendMessage("§e/area modify <target> protection <add|remove> <보호>")
         sender.sendMessage(
             "§7권한: ${AreaPermission.entries.joinToString(", ") { it.label }}"
+        )
+        sender.sendMessage(
+            "§7보호: ${AreaProtection.entries.joinToString(", ") { it.label }}"
         )
     }
 
@@ -207,6 +211,9 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 sender.sendMessage("§7 - $name: ${perms.joinToString(", ") { it.label }}")
             }
         }
+        sender.sendMessage(
+            "§7보호: ${if (area.protections.isEmpty()) "없음" else area.protections.joinToString(", ") { it.label }}"
+        )
     }
 
     // ---- /area modify ... ----
@@ -229,14 +236,15 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         if (args.size < 3) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|role> ...")
+            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|role|protection> ...")
             return
         }
 
         when (args[2].lowercase()) {
             "member" -> handleModifyMember(sender, area, args)
             "role" -> handleModifyRole(sender, area, args)
-            else -> sender.sendMessage("§c'member' 또는 'role' 이어야 합니다.")
+            "protection" -> handleModifyProtection(sender, area, args)
+            else -> sender.sendMessage("§c'member', 'role' 또는 'protection' 이어야 합니다.")
         }
     }
 
@@ -312,6 +320,39 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         areaManager.save()
     }
 
+    private fun handleModifyProtection(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 5) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} protection <add|remove> <보호>")
+            return
+        }
+        val action = args[3].lowercase()
+        val protection = AreaProtection.parse(args[4])
+        if (protection == null) {
+            sender.sendMessage(
+                "§c알 수 없는 보호입니다: ${args[4]} (사용 가능: ${AreaProtection.entries.joinToString(", ") { it.label }})"
+            )
+            return
+        }
+
+        val verb = when (action) {
+            "add" -> {
+                area.protections.add(protection)
+                "추가했습니다"
+            }
+            "remove" -> {
+                area.protections.remove(protection)
+                "제거했습니다"
+            }
+            else -> {
+                sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+                return
+            }
+        }
+
+        sender.sendMessage("§e[${area.target.key()}]§f 지역에 §e[${protection.label}]§f 보호를 $verb.")
+        areaManager.save()
+    }
+
     // ---- tab completion ----
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
@@ -334,13 +375,14 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 } else {
                     emptyList()
                 }
-                "modify" -> listOf("member", "role").filter { it.startsWith(args[2].lowercase()) }
+                "modify" -> listOf("member", "role", "protection").filter { it.startsWith(args[2].lowercase()) }
                 else -> emptyList()
             }
             4 -> if (args[0].lowercase() == "modify") {
                 when (args[2].lowercase()) {
                     "member" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     "role" -> listOf("permission").filter { it.startsWith(args[3].lowercase()) }
+                    "protection" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     else -> emptyList()
                 }
             } else {
@@ -349,6 +391,10 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             5 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
                 (listOf("@everyone") + Bukkit.getOnlinePlayers().map { it.name })
                     .filter { it.startsWith(args[4], ignoreCase = true) }
+            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "protection" &&
+                (args[3].lowercase() == "add" || args[3].lowercase() == "remove")
+            ) {
+                AreaProtection.entries.map { it.label }.filter { it.startsWith(args[4], ignoreCase = true) }
             } else {
                 emptyList()
             }

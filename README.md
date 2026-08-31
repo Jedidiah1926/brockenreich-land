@@ -94,6 +94,15 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 | `bucketFill` | 양동이 채우기 |
 | `administration` | 이 구역 안에서 다른 모든 권한 검사를 무시하는 와일드카드 권한 (기본값: 비허용) |
 
+### 보호(Protection) 목록
+
+권한이 "플레이어가 뭘 할 수 있는가"라면, 보호는 "기계 장치가 구역 경계를 넘을 수 있는가"를 막는 것으로, 기본값은 비활성(off)입니다.
+
+| 보호 | 설명 |
+|---|---|
+| `piston` | 피스톤(스티키 피스톤 + 슬라임/꿀 블록으로 옆으로 끌려가는 블록 포함)이 이 구역의 경계 안팎으로 블록을 밀거나 당기지 못하게 막음 |
+| `flood` | 이 구역 안에서 시작된 물/용암이 구역 경계 밖으로 퍼지지 못하게 막음 (외부에서 안으로 흘러들어오는 건 막지 않음) |
+
 ```
 /area region create <이름>                             # 현재 WorldEdit 선택 영역으로 region:<이름> 생성
 /area region delete <이름>
@@ -105,6 +114,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area modify <target> member remove <닉네임>
 /area modify <target> role permission @everyone <add|remove> <권한>
 /area modify <target> role permission <닉네임> <add|remove> <권한>
+/area modify <target> protection <add|remove> <보호>
 ```
 
 역할(`@everyone`)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.

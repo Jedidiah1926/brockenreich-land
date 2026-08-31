@@ -28,6 +28,16 @@ enum class AreaPermission(val label: String) {
     }
 }
 
+enum class AreaProtection(val label: String) {
+    PISTON("piston"),
+    FLOOD("flood");
+
+    companion object {
+        fun parse(value: String): AreaProtection? =
+            entries.firstOrNull { it.label.equals(value, ignoreCase = true) || it.name.equals(value, ignoreCase = true) }
+    }
+}
+
 sealed class AreaTarget {
     data class WorldArea(val world: String) : AreaTarget()
     data class Region(val name: String) : AreaTarget()
@@ -68,6 +78,8 @@ class Area(val target: AreaTarget, var world: String) {
     val permissions: MutableSet<AreaPermission> =
         AreaPermission.entries.filterTo(mutableSetOf()) { it != AreaPermission.ADMINISTRATION }
     val playerPermissions: MutableMap<UUID, MutableSet<AreaPermission>> = mutableMapOf()
+    /** Structural protections (e.g. PISTON) that stop machinery from crossing this area's boundary. Off by default. */
+    val protections: MutableSet<AreaProtection> = mutableSetOf()
 
     fun contains(location: Location): Boolean {
         val min = this.min ?: return false

@@ -1,6 +1,8 @@
 package com.brockenreich.landplugin.area
 
 import org.bukkit.Location
+import org.bukkit.block.Block
+import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -9,6 +11,9 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockIgniteEvent
+import org.bukkit.event.block.BlockFromToEvent
+import org.bukkit.event.block.BlockPistonExtendEvent
+import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
@@ -120,6 +125,47 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onBucketFill(event: PlayerBucketFillEvent) {
         if (denied(event.player, event.blockClicked.location, AreaPermission.BUCKET_FILL)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Pistons (including sticky pistons dragging slime/honey block structures) must not push or
+    // pull any block across a PISTON-protected area boundary. event.blocks already contains every
+    // block that will move - including ones dragged in sideways via slime/honey adhesion - and
+    // they all translate by the same `direction`, so checking each one individually is sufficient.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onPistonExtend(event: BlockPistonExtendEvent) {
+        if (crossesPistonProtectedBoundary(event.blocks, event.direction)) {
+            event.isCancelled = true
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onPistonRetract(event: BlockPistonRetractEvent) {
+        if (crossesPistonProtectedBoundary(event.blocks, event.direction)) {
+            event.isCancelled = true
+        }
+    }
+
+    private fun crossesPistonProtectedBoundary(blocks: List<Block>, direction: BlockFace): Boolean =
+        blocks.any { block ->
+            val from = block.location
+            val to = from.clone().add(direction.modX.toDouble(), direction.modY.toDouble(), direction.modZ.toDouble())
+            val fromArea = areaManager.areaAt(from)
+            val toArea = areaManager.areaAt(to)
+            fromArea !== toArea &&
+                (fromArea.protections.contains(AreaProtection.PISTON) || toArea.protections.contains(AreaProtection.PISTON))
+        }
+
+    // Stops water/lava that originates inside a FLOOD-protected area from spreading past its
+    // boundary. Only the source area's setting matters - liquid is free to flow in from outside.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockFromTo(event: BlockFromToEvent) {
+        if (!event.block.isLiquid) return
+        val fromArea = areaManager.areaAt(event.block.location)
+        if (!fromArea.protections.contains(AreaProtection.FLOOD)) return
+        val toArea = areaManager.areaAt(event.toBlock.location)
+        if (toArea !== fromArea) {
             event.isCancelled = true
         }
     }
