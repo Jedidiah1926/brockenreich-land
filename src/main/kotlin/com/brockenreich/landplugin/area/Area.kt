@@ -30,7 +30,8 @@ enum class AreaPermission(val label: String) {
 
 enum class AreaProtection(val label: String) {
     PISTON("piston"),
-    FLOOD("flood");
+    FLOOD("flood"),
+    POTION("potion");
 
     companion object {
         fun parse(value: String): AreaProtection? =

@@ -17,6 +17,8 @@ import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
+import org.bukkit.event.entity.LingeringPotionSplashEvent
+import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
@@ -166,6 +168,26 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (!fromArea.protections.contains(AreaProtection.FLOOD)) return
         val toArea = areaManager.areaAt(event.toBlock.location)
         if (toArea !== fromArea) {
+            event.isCancelled = true
+        }
+    }
+
+    // Splash potions: exclude only the entities standing inside a POTION-protected area, rather
+    // than cancelling the whole splash (entities outside the boundary are still affected normally).
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onPotionSplash(event: PotionSplashEvent) {
+        event.affectedEntities.forEach { entity ->
+            if (areaManager.areaAt(entity.location).protections.contains(AreaProtection.POTION)) {
+                event.setIntensity(entity, 0.0)
+            }
+        }
+    }
+
+    // Lingering potions: if the potion breaks inside a POTION-protected area, don't let the
+    // residual area-effect cloud form there at all.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onLingeringPotionSplash(event: LingeringPotionSplashEvent) {
+        if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.POTION)) {
             event.isCancelled = true
         }
     }
