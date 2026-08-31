@@ -79,7 +79,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 |---|---|
 | `entrance` | 구역에 들어갈 수 있는가 |
 | `exit` | 구역에서 나갈 수 있는가 |
-| `interaction` | 상호작용 (버튼, 상자 등 우클릭) |
+| `interaction` | 상호작용 (버튼, 상자 등 우클릭). 활공 중이 아닐 때 폭죽 로켓을 쏘는 것도 여기 포함 |
 | `pickupItem` | 아이템 줍기 |
 | `dropItem` | 아이템 던지기 |
 | `blockBreak` | 블록 부수기 |
@@ -87,7 +87,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 | `blockIgniting` | 블록에 불 붙이기 |
 | `hangingPlace` | 액자/그림 등 걸이형 블록 설치 |
 | `hangingBreak` | 액자/그림 등 걸이형 블록 파괴 |
-| `projectileLaunch` | 발사체 발사 (활, 눈덩이 등) |
+| `projectileLaunch` | 발사체 발사 (활, 눈덩이 등). 엘리트라로 활공 중에 폭죽 로켓으로 부스트하는 것도 여기 포함 |
 | `attackEntity` | 엔티티(몹 등) 공격 |
 | `attackPlayer` | 플레이어 공격 |
 | `bucketEmpty` | 양동이 비우기 |

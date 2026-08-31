@@ -52,6 +52,22 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
+    // Firework rockets aren't a Projectile, so they never reach onProjectileLaunch below. A
+    // non-gliding use (right-click in the air or on a block to launch one) is gated behind
+    // INTERACTION so it never even fires; boosting while gliding with an elytra is gated behind
+    // PROJECTILE_LAUNCH instead, matching the semantics of a normal projectile launch.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onFireworkUse(event: PlayerInteractEvent) {
+        if (event.action != Action.RIGHT_CLICK_AIR && event.action != Action.RIGHT_CLICK_BLOCK) return
+        if (event.hand == EquipmentSlot.OFF_HAND) return
+        if (event.item?.type != Material.FIREWORK_ROCKET) return
+
+        val permission = if (event.player.isGliding) AreaPermission.PROJECTILE_LAUNCH else AreaPermission.INTERACTION
+        if (denied(event.player, event.player.location, permission)) {
+            event.isCancelled = true
+        }
+    }
+
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onPickupItem(event: EntityPickupItemEvent) {
         val player = event.entity as? Player ?: return
