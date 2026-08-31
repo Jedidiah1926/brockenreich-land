@@ -17,6 +17,7 @@ import org.bukkit.event.block.BlockPistonExtendEvent
 import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
 import org.bukkit.event.entity.LingeringPotionSplashEvent
@@ -208,6 +209,20 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     fun onBlockExplode(event: BlockExplodeEvent) {
         event.blockList().removeIf { block ->
             areaManager.areaAt(block.location).protections.contains(AreaProtection.EXPLOSION)
+        }
+    }
+
+    // Explosion damage to entities/players standing inside an EXPLOSION_DAMAGE-protected area.
+    // Kept independent from EXPLOSION (block destruction) so either can be toggled on its own.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onExplosionDamage(event: EntityDamageEvent) {
+        if (event.cause != EntityDamageEvent.DamageCause.ENTITY_EXPLOSION &&
+            event.cause != EntityDamageEvent.DamageCause.BLOCK_EXPLOSION
+        ) {
+            return
+        }
+        if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.EXPLOSION_DAMAGE)) {
+            event.isCancelled = true
         }
     }
 }
