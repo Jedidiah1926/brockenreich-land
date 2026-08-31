@@ -20,8 +20,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         when (args[0].lowercase()) {
-            "create" -> handleCreate(sender, args)
-            "delete" -> handleDelete(sender, args)
+            "region" -> handleRegion(sender, args)
+            "world" -> handleWorld(sender, args)
             "list" -> handleList(sender)
             "info" -> handleInfo(sender, args)
             "modify" -> handleModify(sender, args)
@@ -32,8 +32,10 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
 
     private fun sendUsage(sender: CommandSender) {
         sender.sendMessage("§e--- /area 사용법 ---")
-        sender.sendMessage("§e/area create <이름> §7- WorldEdit 선택 영역으로 구역 생성")
-        sender.sendMessage("§e/area delete <이름>")
+        sender.sendMessage("§e/area region create <이름> §7- WorldEdit 선택 영역으로 region:<이름> 생성")
+        sender.sendMessage("§e/area region delete <이름>")
+        sender.sendMessage("§e/area world create <월드이름> §7- world:<월드이름> 등록 (기본: entrance/exit 모두 허용)")
+        sender.sendMessage("§e/area world delete <월드이름> §7- world:<월드이름> 을 기본값으로 초기화")
         sender.sendMessage("§e/area list")
         sender.sendMessage("§e/area info <region:이름|world:월드이름>")
         sender.sendMessage("§e/area modify <target> member add <닉네임>")
@@ -44,16 +46,30 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
 
     private fun fmt(loc: Location) = "${loc.blockX},${loc.blockY},${loc.blockZ}"
 
-    private fun handleCreate(sender: CommandSender, args: Array<out String>) {
+    // ---- /area region ... ----
+
+    private fun handleRegion(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area region <create|delete> <이름>")
+            return
+        }
+        when (args[1].lowercase()) {
+            "create" -> handleRegionCreate(sender, args)
+            "delete" -> handleRegionDelete(sender, args)
+            else -> sender.sendMessage("§c'create' 또는 'delete' 이어야 합니다.")
+        }
+    }
+
+    private fun handleRegionCreate(sender: CommandSender, args: Array<out String>) {
         if (sender !is Player) {
             sender.sendMessage("§c플레이어만 사용할 수 있습니다.")
             return
         }
-        if (args.size < 2) {
-            sender.sendMessage("§c사용법: /area create <이름>")
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /area region create <이름>")
             return
         }
-        val name = args[1]
+        val name = args[2]
         if (areaManager.region(name) != null) {
             sender.sendMessage("§c이미 존재하는 구역 이름입니다: $name")
             return
@@ -78,30 +94,76 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         val max = BukkitAdapter.adapt(sender.world, region.maximumPoint)
 
         val area = areaManager.createRegion(name, min, max)
-        sender.sendMessage("§a구역 '$name' 을(를) 생성했습니다. (${area.world}: ${fmt(min)} ~ ${fmt(max)})")
+        sender.sendMessage("§a구역 'region:$name' 을(를) 생성했습니다. (${area.world}: ${fmt(min)} ~ ${fmt(max)})")
     }
 
-    private fun handleDelete(sender: CommandSender, args: Array<out String>) {
-        if (args.size < 2) {
-            sender.sendMessage("§c사용법: /area delete <이름>")
+    private fun handleRegionDelete(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /area region delete <이름>")
             return
         }
-        val name = args[1]
+        val name = args[2]
         if (areaManager.deleteRegion(name)) {
-            sender.sendMessage("§a구역 '$name' 을(를) 삭제했습니다.")
+            sender.sendMessage("§a구역 'region:$name' 을(를) 삭제했습니다.")
         } else {
-            sender.sendMessage("§c존재하지 않는 구역입니다: $name")
+            sender.sendMessage("§c존재하지 않는 구역입니다: region:$name")
         }
     }
+
+    // ---- /area world ... ----
+
+    private fun handleWorld(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area world <create|delete> <월드이름>")
+            return
+        }
+        when (args[1].lowercase()) {
+            "create" -> handleWorldCreate(sender, args)
+            "delete" -> handleWorldDelete(sender, args)
+            else -> sender.sendMessage("§c'create' 또는 'delete' 이어야 합니다.")
+        }
+    }
+
+    private fun handleWorldCreate(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /area world create <월드이름>")
+            return
+        }
+        val name = args[2]
+        if (Bukkit.getWorld(name) == null) {
+            sender.sendMessage("§c존재하지 않는 월드입니다: $name")
+            return
+        }
+        areaManager.worldArea(name)
+        areaManager.save()
+        sender.sendMessage("§a월드 구역 'world:$name' 을(를) 등록했습니다. (기본: entrance/exit 모두 허용)")
+    }
+
+    private fun handleWorldDelete(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /area world delete <월드이름>")
+            return
+        }
+        val name = args[2]
+        if (areaManager.resetWorldArea(name)) {
+            sender.sendMessage("§a월드 구역 'world:$name' 을(를) 기본값(entrance/exit 모두 허용)으로 초기화했습니다.")
+        } else {
+            sender.sendMessage("§c등록되어 있지 않은 월드 구역입니다: world:$name")
+        }
+    }
+
+    // ---- /area list / info ----
 
     private fun handleList(sender: CommandSender) {
         val regions = areaManager.regions()
-        if (regions.isEmpty()) {
+        val worlds = areaManager.worldAreas()
+        if (regions.isEmpty() && worlds.isEmpty()) {
             sender.sendMessage("§7등록된 구역이 없습니다.")
             return
         }
-        sender.sendMessage("§e등록된 구역 (${regions.size}):")
-        regions.forEach { sender.sendMessage("§7- ${it.target.key()} (${it.world})") }
+        sender.sendMessage("§e등록된 구역:")
+        regions.forEach { sender.sendMessage("§7- ${it.target.key()}") }
+        worlds.forEach { sender.sendMessage("§7- ${it.target.key()}") }
     }
 
     private fun handleInfo(sender: CommandSender, args: Array<out String>) {
@@ -134,6 +196,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             "§7비멤버 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.name.lowercase() }}"
         )
     }
+
+    // ---- /area modify ... ----
 
     private fun handleModify(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
@@ -220,17 +284,30 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         areaManager.save()
     }
 
+    // ---- tab completion ----
+
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
         return when (args.size) {
-            1 -> listOf("create", "delete", "list", "info", "modify").filter { it.startsWith(args[0].lowercase()) }
+            1 -> listOf("region", "world", "list", "info", "modify").filter { it.startsWith(args[0].lowercase()) }
             2 -> when (args[0].lowercase()) {
-                "delete", "info", "modify" -> completeTargets(args[1])
+                "region", "world" -> listOf("create", "delete").filter { it.startsWith(args[1].lowercase()) }
+                "info", "modify" -> completeTargets(args[1])
                 else -> emptyList()
             }
-            3 -> if (args[0].lowercase() == "modify") {
-                listOf("member", "role").filter { it.startsWith(args[2].lowercase()) }
-            } else {
-                emptyList()
+            3 -> when (args[0].lowercase()) {
+                "region" -> if (args[1].lowercase() == "delete") {
+                    areaManager.regions().map { it.target.key().removePrefix("region:") }
+                        .filter { it.startsWith(args[2].lowercase()) }
+                } else {
+                    emptyList()
+                }
+                "world" -> if (args[1].lowercase() == "create" || args[1].lowercase() == "delete") {
+                    Bukkit.getWorlds().map { it.name }.filter { it.startsWith(args[2].lowercase()) }
+                } else {
+                    emptyList()
+                }
+                "modify" -> listOf("member", "role").filter { it.startsWith(args[2].lowercase()) }
+                else -> emptyList()
             }
             4 -> if (args[0].lowercase() == "modify") {
                 when (args[2].lowercase()) {
@@ -243,8 +320,6 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             }
             5 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
                 listOf("add", "remove").filter { it.startsWith(args[4].lowercase()) }
-            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "member") {
-                emptyList()
             } else {
                 emptyList()
             }

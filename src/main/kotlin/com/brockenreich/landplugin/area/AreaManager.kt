@@ -17,8 +17,18 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
 
     fun regions(): Collection<Area> = regions.values
 
+    /** World areas that have been explicitly registered or touched (not every loaded Bukkit world). */
+    fun worldAreas(): Collection<Area> = worldAreas.values
+
     fun worldArea(world: String): Area =
         worldAreas.getOrPut(world.lowercase()) { Area(AreaTarget.WorldArea(world), world) }
+
+    /** Clears any explicit member/permission overrides for [world], reverting it to the open default. */
+    fun resetWorldArea(world: String): Boolean {
+        val removed = worldAreas.remove(world.lowercase()) != null
+        if (removed) save()
+        return removed
+    }
 
     fun area(target: AreaTarget): Area = when (target) {
         is AreaTarget.WorldArea -> worldArea(target.world)

@@ -8,7 +8,7 @@ softdepend: [WorldEdit]
 commands:
   area:
     description: Manage land areas and their entrance/exit permissions.
-    usage: /<command> <create|delete|list|info|modify> ...
+    usage: /<command> <region|world|list|info|modify> ...
     permission: brockenreichland.area
 permissions:
   brockenreichland.area:

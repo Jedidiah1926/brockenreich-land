@@ -73,8 +73,10 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 - **비멤버 권한(entrance/exit)**: 멤버가 아닌 플레이어에게 입장(`entrance`)/퇴장(`exit`)을 허용할지 여부. 기본값은 둘 다 허용.
 
 ```
-/area create <이름>                                   # 현재 WorldEdit 선택 영역으로 구역 생성
-/area delete <이름>
+/area region create <이름>                             # 현재 WorldEdit 선택 영역으로 region:<이름> 생성
+/area region delete <이름>
+/area world create <월드이름>                           # world:<월드이름> 등록 (기본: entrance/exit 모두 허용)
+/area world delete <월드이름>                           # world:<월드이름> 을 기본값으로 초기화
 /area list
 /area info <region:이름|world:월드이름>
 /area modify <target> member add <닉네임>
@@ -85,11 +87,13 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 
 예시:
 ```
-/area create green
+/area region create green
 /area modify region:green member add Steve
+/area world create world
 /area modify world:world role permission remove entrance
 ```
 → `green` 구역은 `Steve`가 항상 드나들 수 있고, `world` 월드에서 구역으로 지정되지 않은 나머지 공간은
-비멤버(=world:world 의 멤버가 아닌 모든 플레이어)의 입장이 차단됩니다.
+비멤버(=world:world 의 멤버가 아닌 모든 플레이어)의 입장이 차단됩니다. 새로 등록되는 월드/구역은
+entrance·exit 권한이 기본적으로 둘 다 허용된 상태로 시작합니다.
 
 전부 관리자(OP) 전용 명령이며, 설정은 `plugins/BrockenreichLand/areas.yml` 에 저장됩니다.
