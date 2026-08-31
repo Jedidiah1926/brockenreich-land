@@ -40,3 +40,10 @@ tasks.shadowJar {
 tasks.build {
     dependsOn(tasks.shadowJar)
 }
+
+val deployToRunServer by tasks.registering(Copy::class) {
+    description = "Copies the built plugin jar into run/plugins for local server testing."
+    dependsOn(tasks.shadowJar)
+    from(tasks.shadowJar.flatMap { it.archiveFile })
+    into(layout.projectDirectory.dir("run/plugins"))
+}
