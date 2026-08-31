@@ -7,6 +7,8 @@ import java.util.UUID
 enum class AreaPermission(val label: String) {
     ENTRANCE("entrance"),
     EXIT("exit"),
+    BOAT_ENTRANCE("boatEntrance"),
+    BOAT_EXIT("boatExit"),
     INTERACTION("interaction"),
     PICKUP_ITEM("pickupItem"),
     DROP_ITEM("dropItem"),
