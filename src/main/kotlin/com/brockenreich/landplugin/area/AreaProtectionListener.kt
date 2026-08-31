@@ -203,10 +203,16 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Splash potions: exclude only the entities standing inside a POTION-protected area, rather
-    // than cancelling the whole splash (entities outside the boundary are still affected normally).
+    // Splash potions: if the potion breaks inside a POTION-protected area, cancel the whole splash
+    // (including its particle effect) rather than just neutralizing entities one by one. If it
+    // breaks outside a protected area, keep the splash/particle there but still exclude any
+    // affected entity that happens to be standing inside a protected area.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onPotionSplash(event: PotionSplashEvent) {
+        if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.POTION)) {
+            event.isCancelled = true
+            return
+        }
         event.affectedEntities.forEach { entity ->
             if (areaManager.areaAt(entity.location).protections.contains(AreaProtection.POTION)) {
                 event.setIntensity(entity, 0.0)
