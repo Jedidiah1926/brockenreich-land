@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.event.vehicle.VehicleExitEvent
 import org.bukkit.event.vehicle.VehicleMoveEvent
 
 class AreaMoveListener(private val areaManager: AreaManager) : Listener {
@@ -65,6 +66,21 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         }
 
         if (players.any { !toArea.can(it, AreaPermission.BOAT_ENTRANCE) }) {
+            event.isCancelled = true
+        }
+    }
+
+    // Closes a bypass: a boat parked straddling a boundary can sit there without ever completing
+    // a block-crossing move (so onVehicleMove above never fires a denial), but dismounting still
+    // plants the player on foot wherever the boat currently is. Deny the dismount itself if the
+    // player couldn't walk into that spot on foot.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onVehicleExit(event: VehicleExitEvent) {
+        if (event.vehicle !is Boat) return
+        val player = event.exited as? Player ?: return
+        if (player.hasPermission("brockenreichland.area.bypass")) return
+
+        if (!areaManager.areaAt(event.vehicle.location).canEnter(player)) {
             event.isCancelled = true
         }
     }
