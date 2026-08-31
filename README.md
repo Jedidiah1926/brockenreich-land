@@ -20,6 +20,8 @@ Paper 1.21.8 기반 마인크래프트 서버 플러그인 (Kotlin + Gradle).
 이 저장소에는 플러그인 소스만 있고, 실제로 구동할 Paper 서버 본체(jar)는 포함되어 있지 않습니다.
 아래 스크립트로 최신 Paper 1.21.8 빌드를 받아 `run/` 에 로컬 테스트 서버를 구성할 수 있습니다.
 
+### Mac / Linux / Git Bash / WSL
+
 ```bash
 # 1. Paper 1.21.8 서버 jar 다운로드 + run/ 구성 (Mojang EULA 동의 포함)
 ./scripts/setup-server.sh --accept-eula
@@ -31,7 +33,31 @@ Paper 1.21.8 기반 마인크래프트 서버 플러그인 (Kotlin + Gradle).
 ./scripts/run-server.sh
 ```
 
-- `--accept-eula` 없이 실행하면 `run/eula.txt` 가 `eula=false` 로 생성되며,
+### Windows (PowerShell)
+
+`.sh` 스크립트는 PowerShell에서 실행되지 않으므로 `.ps1` 버전을 사용하세요.
+
+```powershell
+# 1. Paper 1.21.8 서버 jar 다운로드 + run/ 구성 (Mojang EULA 동의 포함)
+.\scripts\setup-server.ps1 -AcceptEula
+
+# 2. 플러그인 빌드 후 run/plugins/ 에 자동 복사
+.\gradlew.bat deployToRunServer
+
+# 3. 서버 실행
+.\scripts\run-server.ps1
+```
+
+`실행할 수 없습니다. ... 이 시스템에서 스크립트를 실행할 수 없으므로...` 같은 실행 정책 오류가 나면,
+아래 명령으로 현재 세션에서만 스크립트 실행을 허용한 뒤 다시 시도하세요.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### 공통 안내
+
+- `--accept-eula` / `-AcceptEula` 없이 실행하면 `run/eula.txt` 가 `eula=false` 로 생성되며,
   https://aka.ms/MinecraftEULA 를 확인한 뒤 직접 `eula=true` 로 바꿔야 서버가 뜹니다.
 - `run/` 은 `.gitignore` 에 포함되어 있어 서버 jar/월드 데이터가 커밋되지 않습니다.
 - 서버를 종료하려면 콘솔에 `stop` 을 입력하세요.
