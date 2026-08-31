@@ -6,23 +6,31 @@ $ErrorActionPreference = "Stop"
 $Version = "1.21.8"
 $RunDir = Join-Path $PSScriptRoot "..\run"
 $PluginsDir = Join-Path $RunDir "plugins"
+$UserAgent = "brockenreich-land-setup-script (+https://github.com/Jedidiah1926/brockenreich-land)"
 
 New-Item -ItemType Directory -Force -Path $PluginsDir | Out-Null
 Set-Location $RunDir
 
-Write-Host "Fetching latest Paper $Version build number..."
-$versionInfo = Invoke-RestMethod -Uri "https://api.papermc.io/v2/projects/paper/versions/$Version"
-$build = $versionInfo.builds[-1]
-if (-not $build) {
-    Write-Error "Could not determine latest build for Paper $Version"
+Write-Host "Fetching Paper $Version builds..."
+$builds = Invoke-RestMethod -Uri "https://fill.papermc.io/v3/projects/paper/versions/$Version/builds" -UserAgent $UserAgent
+if (-not $builds -or $builds.Count -eq 0) {
+    Write-Error "No builds found for Paper $Version"
     exit 1
 }
-Write-Host "Latest build: $build"
 
-$jarName = "paper-$Version-$build.jar"
+$stable = $builds | Where-Object { $_.channel -eq "STABLE" }
+$candidates = if ($stable) { $stable } else { $builds }
+$latest = $candidates | Sort-Object -Property id -Descending | Select-Object -First 1
+
+$downloadUrl = $latest.downloads.'server:default'.url
+$jarName = $latest.downloads.'server:default'.name
+if (-not $jarName) { $jarName = "paper-$Version-$($latest.id).jar" }
+
+Write-Host "Latest build: $($latest.id) [$($latest.channel)]"
+
 if (-not (Test-Path $jarName)) {
     Write-Host "Downloading $jarName..."
-    Invoke-WebRequest -Uri "https://api.papermc.io/v2/projects/paper/versions/$Version/builds/$build/downloads/$jarName" -OutFile $jarName
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $jarName -UserAgent $UserAgent
 } else {
     Write-Host "$jarName already present, skipping download."
 }

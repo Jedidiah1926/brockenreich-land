@@ -5,6 +5,7 @@ set -euo pipefail
 VERSION="1.21.8"
 RUN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/run"
 ACCEPT_EULA=false
+USER_AGENT="brockenreich-land-setup-script (+https://github.com/Jedidiah1926/brockenreich-land)"
 
 for arg in "$@"; do
   case "$arg" in
@@ -15,19 +16,43 @@ done
 mkdir -p "$RUN_DIR/plugins"
 cd "$RUN_DIR"
 
-echo "Fetching latest Paper $VERSION build number..."
-BUILD=$(curl -sS "https://api.papermc.io/v2/projects/paper/versions/$VERSION" | grep -o '"builds":\[[0-9, ]*\]' | tr -d '[]"builds:' | tr ',' '\n' | tail -1)
-if [ -z "$BUILD" ]; then
-  echo "Could not determine latest build for Paper $VERSION" >&2
+echo "Fetching Paper $VERSION builds..."
+TMP_JSON="$(mktemp)"
+trap 'rm -f "$TMP_JSON"' EXIT
+curl -sS -A "$USER_AGENT" "https://fill.papermc.io/v3/projects/paper/versions/$VERSION/builds" > "$TMP_JSON"
+
+JQ_FILTER='(map(select(.channel == "STABLE")) as $stable | if ($stable | length) > 0 then $stable else . end) | max_by(.id)'
+
+if command -v jq >/dev/null 2>&1; then
+  BUILD_ID=$(jq -r "$JQ_FILTER | .id" "$TMP_JSON")
+  DOWNLOAD_URL=$(jq -r "$JQ_FILTER | .downloads.\"server:default\".url" "$TMP_JSON")
+  JAR_NAME=$(jq -r "$JQ_FILTER | .downloads.\"server:default\".name // empty" "$TMP_JSON")
+elif command -v python3 >/dev/null 2>&1; then
+  read -r BUILD_ID DOWNLOAD_URL JAR_NAME < <(python3 - "$TMP_JSON" <<'PYEOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    builds = json.load(f)
+stable = [b for b in builds if b.get("channel") == "STABLE"]
+candidates = stable if stable else builds
+latest = max(candidates, key=lambda b: b["id"])
+d = latest["downloads"]["server:default"]
+print(latest["id"], d["url"], d.get("name") or "-")
+PYEOF
+)
+else
+  echo "Need jq or python3 installed to parse the Paper download API response." >&2
   exit 1
 fi
-echo "Latest build: $BUILD"
 
-JAR_NAME="paper-$VERSION-$BUILD.jar"
+if [ -z "$JAR_NAME" ] || [ "$JAR_NAME" = "null" ] || [ "$JAR_NAME" = "-" ]; then
+  JAR_NAME="paper-$VERSION-$BUILD_ID.jar"
+fi
+
+echo "Latest build: $BUILD_ID"
+
 if [ ! -f "$JAR_NAME" ]; then
   echo "Downloading $JAR_NAME..."
-  curl -sS -o "$JAR_NAME" \
-    "https://api.papermc.io/v2/projects/paper/versions/$VERSION/builds/$BUILD/downloads/$JAR_NAME"
+  curl -sS -A "$USER_AGENT" -o "$JAR_NAME" "$DOWNLOAD_URL"
 else
   echo "$JAR_NAME already present, skipping download."
 fi
@@ -47,4 +72,4 @@ fi
 
 echo
 echo "Setup complete. Server jar: run/$JAR_NAME (symlinked as run/server.jar)"
-echo "Next: ./gradlew build && cp build/libs/*.jar run/plugins/ && ./scripts/run-server.sh"
+echo "Next: ./gradlew build && ./gradlew deployToRunServer && ./scripts/run-server.sh"
