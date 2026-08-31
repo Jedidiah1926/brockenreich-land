@@ -1,6 +1,7 @@
 package com.brockenreich.landplugin.area
 
 import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.entity.Player
@@ -134,10 +135,10 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Pistons (including sticky pistons dragging slime/honey block structures) must not push or
-    // pull any block across a PISTON-protected area boundary. event.blocks already contains every
-    // block that will move - including ones dragged in sideways via slime/honey adhesion - and
-    // they all translate by the same `direction`, so checking each one individually is sufficient.
+    // Pistons (including sticky pistons dragging slime/honey block structures, sideways-attached
+    // ones included - see resolveMovingBlocks below) must not push or pull any block across a
+    // PISTON-protected area boundary. Every moving block translates by the same `direction`, so
+    // checking each one individually is sufficient.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onPistonExtend(event: BlockPistonExtendEvent) {
         if (crossesPistonProtectedBoundary(event.blocks, event.direction)) {
@@ -153,7 +154,7 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     }
 
     private fun crossesPistonProtectedBoundary(blocks: List<Block>, direction: BlockFace): Boolean =
-        blocks.any { block ->
+        resolveMovingBlocks(blocks).any { block ->
             val from = block.location
             val to = from.clone().add(direction.modX.toDouble(), direction.modY.toDouble(), direction.modZ.toDouble())
             val fromArea = areaManager.areaAt(from)
@@ -161,6 +162,31 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
             fromArea !== toArea &&
                 (fromArea.protections.contains(AreaProtection.PISTON) || toArea.protections.contains(AreaProtection.PISTON))
         }
+
+    /**
+     * Bukkit's BlockPistonExtendEvent/RetractEvent.getBlocks() has historically under-reported
+     * blocks dragged in sideways via slime/honey block adhesion. Rather than trust it completely,
+     * flood-fill outward from the reported blocks through any slime/honey adhesion in all six
+     * directions, so a laterally-attached structure is never missed by the boundary check above.
+     * Over-including a block here (treating it as "would move" when vanilla might not actually
+     * move it) is a safe failure mode for a protection feature; under-including is not.
+     */
+    private fun resolveMovingBlocks(seeds: List<Block>): Set<Block> {
+        val visited = LinkedHashSet<Block>()
+        val queue = ArrayDeque(seeds)
+        val faces = arrayOf(BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)
+        while (queue.isNotEmpty() && visited.size < 256) {
+            val current = queue.removeFirst()
+            if (!visited.add(current)) continue
+            if (current.type != Material.SLIME_BLOCK && current.type != Material.HONEY_BLOCK) continue
+            for (face in faces) {
+                val neighbor = current.getRelative(face)
+                if (neighbor.type.isAir) continue
+                if (neighbor !in visited) queue.add(neighbor)
+            }
+        }
+        return visited
+    }
 
     // Stops water/lava that originates inside a FLOOD-protected area from spreading past its
     // boundary. Only the source area's setting matters - liquid is free to flow in from outside.
