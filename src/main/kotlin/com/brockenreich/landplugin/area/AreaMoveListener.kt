@@ -42,8 +42,10 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
     // VehicleMoveEvent instead, with its passengers along for the ride, so entrance/exit is
     // checked separately here (using dedicated boatEntrance/boatExit permissions) for boats.
     // VehicleMoveEvent isn't Cancellable, so a denied move is undone by teleporting the boat
-    // back to its previous location instead of setting isCancelled.
-    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    // back to its previous location instead of setting isCancelled - and `ignoreCancelled` must
+    // NOT be set here, since Bukkit's generated executor casts to Cancellable to honor it and
+    // VehicleMoveEvent doesn't implement that interface, throwing at every single firing.
+    @EventHandler(priority = EventPriority.LOW)
     fun onVehicleMove(event: VehicleMoveEvent) {
         if (event.vehicle !is Boat) return
         val from = event.from
