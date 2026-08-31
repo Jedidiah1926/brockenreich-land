@@ -40,8 +40,10 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e/area info <region:이름|world:월드이름>")
         sender.sendMessage("§e/area modify <target> member add <닉네임>")
         sender.sendMessage("§e/area modify <target> member remove <닉네임>")
-        sender.sendMessage("§e/area modify <target> role permission add <entrance|exit>")
-        sender.sendMessage("§e/area modify <target> role permission remove <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission @everyone add <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission @everyone remove <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission <닉네임> add <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission <닉네임> remove <entrance|exit>")
     }
 
     private fun fmt(loc: Location) = "${loc.blockX},${loc.blockY},${loc.blockZ}"
@@ -193,8 +195,17 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         val memberNames = area.members.mapNotNull { Bukkit.getOfflinePlayer(it).name }
         sender.sendMessage("§7멤버: ${if (memberNames.isEmpty()) "없음" else memberNames.joinToString(", ")}")
         sender.sendMessage(
-            "§7비멤버 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.name.lowercase() }}"
+            "§7@everyone 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.name.lowercase() }}"
         )
+        if (area.playerPermissions.isNotEmpty()) {
+            sender.sendMessage("§7개별 허용 권한:")
+            area.playerPermissions.forEach { (uuid, perms) ->
+                if (perms.isEmpty()) return@forEach
+                @Suppress("DEPRECATION")
+                val name = Bukkit.getOfflinePlayer(uuid).name ?: uuid.toString()
+                sender.sendMessage("§7 - $name: ${perms.joinToString(", ") { it.name.lowercase() }}")
+            }
+        }
     }
 
     // ---- /area modify ... ----
@@ -256,31 +267,45 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
     }
 
     private fun handleModifyRole(sender: CommandSender, area: Area, args: Array<out String>) {
-        if (args.size < 6 || args[3].lowercase() != "permission") {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <add|remove> <entrance|exit>")
+        if (args.size < 7 || args[3].lowercase() != "permission") {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <@everyone|닉네임> <add|remove> <entrance|exit>")
             return
         }
-        val action = args[4].lowercase()
-        val permission = AreaPermission.parse(args[5])
+        val subject = args[4]
+        val action = args[5].lowercase()
+        val permission = AreaPermission.parse(args[6])
         if (permission == null) {
             sender.sendMessage("§c권한은 entrance 또는 exit 이어야 합니다.")
             return
         }
+        if (action != "add" && action != "remove") {
+            sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+            return
+        }
 
-        when (action) {
-            "add" -> {
-                area.permissions.add(permission)
-                sender.sendMessage("§a${area.target.key()} 에서 비멤버 ${permission.name.lowercase()} 권한을 허용했습니다.")
-            }
-            "remove" -> {
-                area.permissions.remove(permission)
-                sender.sendMessage("§a${area.target.key()} 에서 비멤버 ${permission.name.lowercase()} 권한을 차단했습니다.")
-            }
-            else -> {
-                sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+        if (subject.startsWith("@")) {
+            if (!subject.equals("@everyone", ignoreCase = true)) {
+                sender.sendMessage("§c알 수 없는 역할입니다: $subject (사용 가능: @everyone)")
                 return
             }
+            when (action) {
+                "add" -> area.permissions.add(permission)
+                "remove" -> area.permissions.remove(permission)
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val offlinePlayer = Bukkit.getOfflinePlayer(subject)
+            when (action) {
+                "add" -> area.playerPermissions.getOrPut(offlinePlayer.uniqueId) { mutableSetOf() }.add(permission)
+                "remove" -> area.playerPermissions[offlinePlayer.uniqueId]?.remove(permission)
+            }
         }
+
+        val verb = if (action == "add") "추가했습니다" else "제거했습니다"
+        val subjectPhrase = if (subject.startsWith("@")) "§e[$subject]§f 역할에" else "§e[$subject]§f 님에게"
+        sender.sendMessage(
+            "§e[${area.target.key()}]§f 지역의 $subjectPhrase §e[${permission.name.lowercase()}]§f 권한을 $verb."
+        )
         areaManager.save()
     }
 
@@ -319,12 +344,18 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 emptyList()
             }
             5 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
-                listOf("add", "remove").filter { it.startsWith(args[4].lowercase()) }
+                (listOf("@everyone") + Bukkit.getOnlinePlayers().map { it.name })
+                    .filter { it.startsWith(args[4], ignoreCase = true) }
             } else {
                 emptyList()
             }
             6 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
-                listOf("entrance", "exit").filter { it.startsWith(args[5].lowercase()) }
+                listOf("add", "remove").filter { it.startsWith(args[5].lowercase()) }
+            } else {
+                emptyList()
+            }
+            7 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
+                listOf("entrance", "exit").filter { it.startsWith(args[6].lowercase()) }
             } else {
                 emptyList()
             }

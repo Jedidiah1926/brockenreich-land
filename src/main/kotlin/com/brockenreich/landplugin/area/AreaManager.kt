@@ -83,6 +83,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             )
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
+            loadPlayerPermissions(section, area)
             regions[key] = area
         }
 
@@ -94,9 +95,22 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             )
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
+            loadPlayerPermissions(section, area)
         }
 
         logger.info("Loaded ${regions.size} region(s) and ${worldAreas.size} world area override(s).")
+    }
+
+    private fun loadPlayerPermissions(section: org.bukkit.configuration.ConfigurationSection, area: Area) {
+        area.playerPermissions.clear()
+        val playersSection = section.getConfigurationSection("playerPermissions") ?: return
+        playersSection.getKeys(false).forEach { uuidKey ->
+            val uuid = runCatching { UUID.fromString(uuidKey) }.getOrNull() ?: return@forEach
+            val perms = playersSection.getStringList(uuidKey).mapNotNull { AreaPermission.parse(it) }.toMutableSet()
+            if (perms.isNotEmpty()) {
+                area.playerPermissions[uuid] = perms
+            }
+        }
     }
 
     fun save() {
@@ -117,12 +131,18 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             }
             yaml.set("$base.members", area.members.map { it.toString() })
             yaml.set("$base.permissions", area.permissions.map { it.name })
+            area.playerPermissions.forEach { (uuid, perms) ->
+                yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
+            }
         }
 
         worldAreas.forEach { (key, area) ->
             val base = "worlds.$key"
             yaml.set("$base.members", area.members.map { it.toString() })
             yaml.set("$base.permissions", area.permissions.map { it.name })
+            area.playerPermissions.forEach { (uuid, perms) ->
+                yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
+            }
         }
 
         dataFolder.mkdirs()

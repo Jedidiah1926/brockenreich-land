@@ -70,7 +70,8 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 - **구역(region)**: WorldEdit으로 선택한 직육면체 영역에 이름을 붙인 것.
 - **월드 기본 구역(world)**: 어떤 구역에도 속하지 않는, 월드의 나머지 모든 공간. `world:<월드이름>` 으로 지정.
 - **멤버(member)**: 해당 구역에 항상 입장/퇴장 가능한 플레이어 목록.
-- **비멤버 권한(entrance/exit)**: 멤버가 아닌 플레이어에게 입장(`entrance`)/퇴장(`exit`)을 허용할지 여부. 기본값은 둘 다 허용.
+- **`@everyone` 권한(entrance/exit)**: 멤버가 아닌 모든 플레이어에게 입장(`entrance`)/퇴장(`exit`)을 허용할지 여부. 기본값은 둘 다 허용.
+- **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능).
 
 ```
 /area region create <이름>                             # 현재 WorldEdit 선택 영역으로 region:<이름> 생성
@@ -81,19 +82,25 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area info <region:이름|world:월드이름>
 /area modify <target> member add <닉네임>
 /area modify <target> member remove <닉네임>
-/area modify <target> role permission add <entrance|exit>
-/area modify <target> role permission remove <entrance|exit>
+/area modify <target> role permission @everyone add <entrance|exit>
+/area modify <target> role permission @everyone remove <entrance|exit>
+/area modify <target> role permission <닉네임> add <entrance|exit>
+/area modify <target> role permission <닉네임> remove <entrance|exit>
 ```
+
+역할(`@everyone` 등)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.
 
 예시:
 ```
 /area region create green
 /area modify region:green member add Steve
 /area world create world
-/area modify world:world role permission remove entrance
+/area modify world:world role permission @everyone remove entrance
+/area modify world:world role permission Alex add entrance
 ```
 → `green` 구역은 `Steve`가 항상 드나들 수 있고, `world` 월드에서 구역으로 지정되지 않은 나머지 공간은
-비멤버(=world:world 의 멤버가 아닌 모든 플레이어)의 입장이 차단됩니다. 새로 등록되는 월드/구역은
+`@everyone`(월드의 멤버가 아닌 모든 플레이어)의 입장이 차단되지만, `Alex`는 개별로 입장이 허용되어
+`@everyone` 설정과 무관하게 들어갈 수 있습니다. 새로 등록되는 월드/구역은
 entrance·exit 권한이 기본적으로 둘 다 허용된 상태로 시작합니다.
 
 전부 관리자(OP) 전용 명령이며, 설정은 `plugins/BrockenreichLand/areas.yml` 에 저장됩니다.

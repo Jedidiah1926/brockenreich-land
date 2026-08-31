@@ -40,14 +40,16 @@ sealed class AreaTarget {
 
 /**
  * A named region (WorldEdit cuboid) or a world's catch-all area (everything not
- * covered by any region). Members always have entrance/exit access; the
- * `permissions` set controls what non-members are allowed to do.
+ * covered by any region). Members always have entrance/exit access. `permissions`
+ * is the @everyone default; `playerPermissions` grants individual players extra
+ * access on top of that default (it never revokes what @everyone already allows).
  */
 class Area(val target: AreaTarget, var world: String) {
     var min: Location? = null
     var max: Location? = null
     val members: MutableSet<UUID> = mutableSetOf()
     val permissions: MutableSet<AreaPermission> = mutableSetOf(AreaPermission.ENTRANCE, AreaPermission.EXIT)
+    val playerPermissions: MutableMap<UUID, MutableSet<AreaPermission>> = mutableMapOf()
 
     fun contains(location: Location): Boolean {
         val min = this.min ?: return false
@@ -63,9 +65,12 @@ class Area(val target: AreaTarget, var world: String) {
 
     fun isMember(player: OfflinePlayer): Boolean = members.contains(player.uniqueId)
 
-    fun canEnter(player: OfflinePlayer): Boolean =
-        isMember(player) || permissions.contains(AreaPermission.ENTRANCE)
+    private fun hasEffectivePermission(player: OfflinePlayer, permission: AreaPermission): Boolean =
+        isMember(player) ||
+            permissions.contains(permission) ||
+            (playerPermissions[player.uniqueId]?.contains(permission) ?: false)
 
-    fun canExit(player: OfflinePlayer): Boolean =
-        isMember(player) || permissions.contains(AreaPermission.EXIT)
+    fun canEnter(player: OfflinePlayer): Boolean = hasEffectivePermission(player, AreaPermission.ENTRANCE)
+
+    fun canExit(player: OfflinePlayer): Boolean = hasEffectivePermission(player, AreaPermission.EXIT)
 }
