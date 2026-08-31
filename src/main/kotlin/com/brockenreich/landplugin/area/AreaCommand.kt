@@ -1,0 +1,265 @@
+package com.brockenreich.landplugin.area
+
+import com.sk89q.worldedit.IncompleteRegionException
+import com.sk89q.worldedit.bukkit.BukkitAdapter
+import com.sk89q.worldedit.bukkit.WorldEditPlugin
+import org.bukkit.Bukkit
+import org.bukkit.Location
+import org.bukkit.command.Command
+import org.bukkit.command.CommandExecutor
+import org.bukkit.command.CommandSender
+import org.bukkit.command.TabCompleter
+import org.bukkit.entity.Player
+
+class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCompleter {
+
+    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
+        if (args.isEmpty()) {
+            sendUsage(sender)
+            return true
+        }
+
+        when (args[0].lowercase()) {
+            "create" -> handleCreate(sender, args)
+            "delete" -> handleDelete(sender, args)
+            "list" -> handleList(sender)
+            "info" -> handleInfo(sender, args)
+            "modify" -> handleModify(sender, args)
+            else -> sendUsage(sender)
+        }
+        return true
+    }
+
+    private fun sendUsage(sender: CommandSender) {
+        sender.sendMessage("§e--- /area 사용법 ---")
+        sender.sendMessage("§e/area create <이름> §7- WorldEdit 선택 영역으로 구역 생성")
+        sender.sendMessage("§e/area delete <이름>")
+        sender.sendMessage("§e/area list")
+        sender.sendMessage("§e/area info <region:이름|world:월드이름>")
+        sender.sendMessage("§e/area modify <target> member add <닉네임>")
+        sender.sendMessage("§e/area modify <target> member remove <닉네임>")
+        sender.sendMessage("§e/area modify <target> role permission add <entrance|exit>")
+        sender.sendMessage("§e/area modify <target> role permission remove <entrance|exit>")
+    }
+
+    private fun fmt(loc: Location) = "${loc.blockX},${loc.blockY},${loc.blockZ}"
+
+    private fun handleCreate(sender: CommandSender, args: Array<out String>) {
+        if (sender !is Player) {
+            sender.sendMessage("§c플레이어만 사용할 수 있습니다.")
+            return
+        }
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area create <이름>")
+            return
+        }
+        val name = args[1]
+        if (areaManager.region(name) != null) {
+            sender.sendMessage("§c이미 존재하는 구역 이름입니다: $name")
+            return
+        }
+
+        val worldEdit = Bukkit.getPluginManager().getPlugin("WorldEdit") as? WorldEditPlugin
+        if (worldEdit == null) {
+            sender.sendMessage("§cWorldEdit 플러그인이 필요합니다.")
+            return
+        }
+
+        val session = worldEdit.getSession(sender)
+        val weWorld = BukkitAdapter.adapt(sender.world)
+        val region = try {
+            session.getSelection(weWorld)
+        } catch (e: IncompleteRegionException) {
+            sender.sendMessage("§cWorldEdit으로 먼저 영역을 선택해주세요 (나무도끼 또는 //pos1, //pos2).")
+            return
+        }
+
+        val min = BukkitAdapter.adapt(sender.world, region.minimumPoint)
+        val max = BukkitAdapter.adapt(sender.world, region.maximumPoint)
+
+        val area = areaManager.createRegion(name, min, max)
+        sender.sendMessage("§a구역 '$name' 을(를) 생성했습니다. (${area.world}: ${fmt(min)} ~ ${fmt(max)})")
+    }
+
+    private fun handleDelete(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area delete <이름>")
+            return
+        }
+        val name = args[1]
+        if (areaManager.deleteRegion(name)) {
+            sender.sendMessage("§a구역 '$name' 을(를) 삭제했습니다.")
+        } else {
+            sender.sendMessage("§c존재하지 않는 구역입니다: $name")
+        }
+    }
+
+    private fun handleList(sender: CommandSender) {
+        val regions = areaManager.regions()
+        if (regions.isEmpty()) {
+            sender.sendMessage("§7등록된 구역이 없습니다.")
+            return
+        }
+        sender.sendMessage("§e등록된 구역 (${regions.size}):")
+        regions.forEach { sender.sendMessage("§7- ${it.target.key()} (${it.world})") }
+    }
+
+    private fun handleInfo(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area info <region:이름|world:월드이름>")
+            return
+        }
+        val target = AreaTarget.parse(args[1])
+        if (target == null) {
+            sender.sendMessage("§c형식이 올바르지 않습니다. region:이름 또는 world:월드이름 형태여야 합니다.")
+            return
+        }
+        val area = try {
+            areaManager.area(target)
+        } catch (e: IllegalArgumentException) {
+            sender.sendMessage("§c${e.message}")
+            return
+        }
+        sender.sendMessage("§e구역 정보: ${target.key()}")
+        sender.sendMessage("§7월드: ${area.world}")
+        val min = area.min
+        val max = area.max
+        if (min != null && max != null) {
+            sender.sendMessage("§7범위: ${fmt(min)} ~ ${fmt(max)}")
+        }
+        @Suppress("DEPRECATION")
+        val memberNames = area.members.mapNotNull { Bukkit.getOfflinePlayer(it).name }
+        sender.sendMessage("§7멤버: ${if (memberNames.isEmpty()) "없음" else memberNames.joinToString(", ")}")
+        sender.sendMessage(
+            "§7비멤버 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.name.lowercase() }}"
+        )
+    }
+
+    private fun handleModify(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /area modify <target> ...")
+            return
+        }
+        val target = AreaTarget.parse(args[1])
+        if (target == null) {
+            sender.sendMessage("§c형식이 올바르지 않습니다. region:이름 또는 world:월드이름 형태여야 합니다.")
+            return
+        }
+        val area = try {
+            areaManager.area(target)
+        } catch (e: IllegalArgumentException) {
+            sender.sendMessage("§c${e.message}")
+            return
+        }
+
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|role> ...")
+            return
+        }
+
+        when (args[2].lowercase()) {
+            "member" -> handleModifyMember(sender, area, args)
+            "role" -> handleModifyRole(sender, area, args)
+            else -> sender.sendMessage("§c'member' 또는 'role' 이어야 합니다.")
+        }
+    }
+
+    private fun handleModifyMember(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 5) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} member <add|remove> <닉네임>")
+            return
+        }
+        val action = args[3].lowercase()
+        val nickname = args[4]
+        @Suppress("DEPRECATION")
+        val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
+
+        when (action) {
+            "add" -> {
+                area.members.add(offlinePlayer.uniqueId)
+                sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 멤버로 추가했습니다.")
+            }
+            "remove" -> {
+                area.members.remove(offlinePlayer.uniqueId)
+                sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 멤버에서 제거했습니다.")
+            }
+            else -> {
+                sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+                return
+            }
+        }
+        areaManager.save()
+    }
+
+    private fun handleModifyRole(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 6 || args[3].lowercase() != "permission") {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <add|remove> <entrance|exit>")
+            return
+        }
+        val action = args[4].lowercase()
+        val permission = AreaPermission.parse(args[5])
+        if (permission == null) {
+            sender.sendMessage("§c권한은 entrance 또는 exit 이어야 합니다.")
+            return
+        }
+
+        when (action) {
+            "add" -> {
+                area.permissions.add(permission)
+                sender.sendMessage("§a${area.target.key()} 에서 비멤버 ${permission.name.lowercase()} 권한을 허용했습니다.")
+            }
+            "remove" -> {
+                area.permissions.remove(permission)
+                sender.sendMessage("§a${area.target.key()} 에서 비멤버 ${permission.name.lowercase()} 권한을 차단했습니다.")
+            }
+            else -> {
+                sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+                return
+            }
+        }
+        areaManager.save()
+    }
+
+    override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
+        return when (args.size) {
+            1 -> listOf("create", "delete", "list", "info", "modify").filter { it.startsWith(args[0].lowercase()) }
+            2 -> when (args[0].lowercase()) {
+                "delete", "info", "modify" -> completeTargets(args[1])
+                else -> emptyList()
+            }
+            3 -> if (args[0].lowercase() == "modify") {
+                listOf("member", "role").filter { it.startsWith(args[2].lowercase()) }
+            } else {
+                emptyList()
+            }
+            4 -> if (args[0].lowercase() == "modify") {
+                when (args[2].lowercase()) {
+                    "member" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
+                    "role" -> listOf("permission").filter { it.startsWith(args[3].lowercase()) }
+                    else -> emptyList()
+                }
+            } else {
+                emptyList()
+            }
+            5 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
+                listOf("add", "remove").filter { it.startsWith(args[4].lowercase()) }
+            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "member") {
+                emptyList()
+            } else {
+                emptyList()
+            }
+            6 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
+                listOf("entrance", "exit").filter { it.startsWith(args[5].lowercase()) }
+            } else {
+                emptyList()
+            }
+            else -> emptyList()
+        }
+    }
+
+    private fun completeTargets(prefix: String): List<String> {
+        val regionKeys = areaManager.regions().map { it.target.key() }
+        val worldKeys = Bukkit.getWorlds().map { "world:${it.name}" }
+        return (regionKeys + worldKeys).filter { it.startsWith(prefix, ignoreCase = true) }
+    }
+}

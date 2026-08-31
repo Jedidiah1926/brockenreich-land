@@ -4,3 +4,16 @@ main: com.brockenreich.landplugin.LandPlugin
 api-version: '1.21'
 author: hiblessing
 description: Brockenreich Land plugin for Paper 1.21.8
+softdepend: [WorldEdit]
+commands:
+  area:
+    description: Manage land areas and their entrance/exit permissions.
+    usage: /<command> <create|delete|list|info|modify> ...
+    permission: brockenreichland.area
+permissions:
+  brockenreichland.area:
+    description: Manage land areas
+    default: op
+  brockenreichland.area.bypass:
+    description: Bypass area entrance/exit restrictions
+    default: op

@@ -61,3 +61,35 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
   https://aka.ms/MinecraftEULA 를 확인한 뒤 직접 `eula=true` 로 바꿔야 서버가 뜹니다.
 - `run/` 은 `.gitignore` 에 포함되어 있어 서버 jar/월드 데이터가 커밋되지 않습니다.
 - 서버를 종료하려면 콘솔에 `stop` 을 입력하세요.
+
+## 구역(Area) 관리
+
+WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `run/plugins/` 에 WorldEdit이 설치되어 있어야
+`/area create` 로 새 구역을 만들 수 있습니다.
+
+- **구역(region)**: WorldEdit으로 선택한 직육면체 영역에 이름을 붙인 것.
+- **월드 기본 구역(world)**: 어떤 구역에도 속하지 않는, 월드의 나머지 모든 공간. `world:<월드이름>` 으로 지정.
+- **멤버(member)**: 해당 구역에 항상 입장/퇴장 가능한 플레이어 목록.
+- **비멤버 권한(entrance/exit)**: 멤버가 아닌 플레이어에게 입장(`entrance`)/퇴장(`exit`)을 허용할지 여부. 기본값은 둘 다 허용.
+
+```
+/area create <이름>                                   # 현재 WorldEdit 선택 영역으로 구역 생성
+/area delete <이름>
+/area list
+/area info <region:이름|world:월드이름>
+/area modify <target> member add <닉네임>
+/area modify <target> member remove <닉네임>
+/area modify <target> role permission add <entrance|exit>
+/area modify <target> role permission remove <entrance|exit>
+```
+
+예시:
+```
+/area create green
+/area modify region:green member add Steve
+/area modify world:world role permission remove entrance
+```
+→ `green` 구역은 `Steve`가 항상 드나들 수 있고, `world` 월드에서 구역으로 지정되지 않은 나머지 공간은
+비멤버(=world:world 의 멤버가 아닌 모든 플레이어)의 입장이 차단됩니다.
+
+전부 관리자(OP) 전용 명령이며, 설정은 `plugins/BrockenreichLand/areas.yml` 에 저장됩니다.
