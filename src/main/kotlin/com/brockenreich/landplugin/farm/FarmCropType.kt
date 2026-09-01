@@ -25,9 +25,9 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
     // detects a completed 2x2 of either species and schedules JUNGLE_BIG_TREE/DARK_OAK_SAPLING
     // for all 4 corners instead of the lone duration.
     SAPLING("sapling", "나무 묘목", true, 180.0),
-    JUNGLE_SAPLING("jungleSapling", "정글 나무 묘목 (1×1)", true, 2160.0),
-    JUNGLE_BIG_TREE("jungleBigTree", "정글 큰 나무 (2×2)", true, 10080.0),
-    DARK_OAK_SAPLING("darkOakSapling", "다크 오크 나무 묘목 (2×2)", true, 480.0),
+    JUNGLE_SAPLING("jungleSapling", "정글 나무 묘목", true, 2160.0),
+    JUNGLE_BIG_TREE("jungleBigTree", "정글 큰 나무", true, 10080.0),
+    DARK_OAK_SAPLING("darkOakSapling", "짙은 참나무 묘목", true, 480.0),
     COCOA("cocoa", "코코아", true, 60.0),
     CACTUS("cactus", "선인장", false, 0.0),
     SUGAR_CANE("sugarCane", "사탕수수", false, 0.0),
