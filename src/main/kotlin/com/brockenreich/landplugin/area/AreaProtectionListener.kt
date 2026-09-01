@@ -33,6 +33,8 @@ import org.bukkit.event.hanging.HangingPlaceEvent
 import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
 import org.bukkit.event.player.PlayerDropItemEvent
+import org.bukkit.event.player.PlayerInteractAtEntityEvent
+import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
@@ -51,6 +53,30 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (event.hand == EquipmentSlot.OFF_HAND) return
         val block = event.clickedBlock ?: return
         if (denied(event.player, block.location, AreaPermission.INTERACTION)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Right-clicking an entity (villager trading, feeding/petting animals, opening a minecart
+    // chest, rotating an item frame's item, mounting a boat, etc.) was unguarded - a player
+    // standing just outside a boundary within reach could freely interact with entities sitting
+    // just inside it, regardless of that area's INTERACTION permission. Checked at the entity's
+    // location, not the player's, matching onInteract's block-target check above.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onInteractEntity(event: PlayerInteractEntityEvent) {
+        if (event.hand == EquipmentSlot.OFF_HAND) return
+        if (denied(event.player, event.rightClicked.location, AreaPermission.INTERACTION)) {
+            event.isCancelled = true
+        }
+    }
+
+    // PlayerInteractAtEntityEvent (precise-click interactions, e.g. armor stands) has its own
+    // handler list separate from PlayerInteractEntityEvent above despite being a subclass, so it
+    // needs its own registration to actually be caught.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onInteractAtEntity(event: PlayerInteractAtEntityEvent) {
+        if (event.hand == EquipmentSlot.OFF_HAND) return
+        if (denied(event.player, event.rightClicked.location, AreaPermission.INTERACTION)) {
             event.isCancelled = true
         }
     }
