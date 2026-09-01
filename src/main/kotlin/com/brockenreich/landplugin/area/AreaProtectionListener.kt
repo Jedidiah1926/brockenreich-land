@@ -133,11 +133,16 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
+    // Checked at both the attacker's own location and the victim's - a sweep attack (sword
+    // swing hitting nearby entities) can land on someone standing just outside the boundary
+    // while the attacker stays inside, which `denied(attacker, event.entity.location, ...)`
+    // alone wouldn't catch since that only consults the permissions of the area the *victim*
+    // is standing in.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onEntityDamageByEntity(event: EntityDamageByEntityEvent) {
         val attacker = event.damager as? Player ?: return
         val permission = if (event.entity is Player) AreaPermission.ATTACK_PLAYER else AreaPermission.ATTACK_ENTITY
-        if (denied(attacker, event.entity.location, permission)) {
+        if (denied(attacker, attacker.location, permission) || denied(attacker, event.entity.location, permission)) {
             event.isCancelled = true
         }
     }

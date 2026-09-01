@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.event.player.PlayerTeleportEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 import org.bukkit.event.vehicle.VehicleMoveEvent
 import org.bukkit.util.Vector
@@ -22,6 +23,37 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
             return
         }
 
+        val player = event.player
+        if (player.hasPermission("brockenreichland.area.bypass")) return
+
+        val fromArea = areaManager.areaAt(from)
+        val toArea = areaManager.areaAt(to)
+        if (fromArea === toArea) return
+
+        if (!fromArea.canExit(player)) {
+            event.isCancelled = true
+            return
+        }
+
+        if (!toArea.canEnter(player)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Ender pearls and chorus fruit teleport the player directly, bypassing PlayerMoveEvent
+    // entirely - without this, entrance/exit permissions could be skipped just by throwing a
+    // pearl or eating chorus fruit across a boundary. PlayerTeleportEvent IS Cancellable (unlike
+    // VehicleMoveEvent/BlockRedstoneEvent), so ignoreCancelled is safe here.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onTeleport(event: PlayerTeleportEvent) {
+        if (event.cause != PlayerTeleportEvent.TeleportCause.ENDER_PEARL &&
+            event.cause != PlayerTeleportEvent.TeleportCause.CHORUS_FRUIT
+        ) {
+            return
+        }
+
+        val from = event.from
+        val to = event.to ?: return
         val player = event.player
         if (player.hasPermission("brockenreichland.area.bypass")) return
 
