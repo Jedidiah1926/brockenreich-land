@@ -89,6 +89,8 @@ class Area(val target: AreaTarget, var world: String) {
     var max: Location? = null
     val members: MutableSet<UUID> = mutableSetOf()
     val admins: MutableSet<UUID> = mutableSetOf()
+    /** Region names (only meaningful when target is a Region) this area inherits admin from - see AreaManager.isEffectiveAdmin. */
+    val parents: MutableSet<String> = mutableSetOf()
     val permissions: MutableSet<AreaPermission> =
         AreaPermission.entries.filterTo(mutableSetOf()) { it != AreaPermission.ADMINISTRATION }
     val playerPermissions: MutableMap<UUID, MutableSet<AreaPermission>> = mutableMapOf()

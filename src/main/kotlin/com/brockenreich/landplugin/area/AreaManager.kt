@@ -2,6 +2,7 @@ package com.brockenreich.landplugin.area
 
 import org.bukkit.Bukkit
 import org.bukkit.Location
+import org.bukkit.OfflinePlayer
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 import java.util.UUID
@@ -60,6 +61,42 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
         return region ?: worldArea(location.world?.name ?: "world")
     }
 
+    /**
+     * Whether [player] manages [area] as an admin, either directly (area.isAdmin) or by inheritance:
+     * a region with parents is only effectively admin'd by a player who is themselves an effective
+     * admin of *every* one of its parents (AND, not OR) - so losing admin in just one parent drops
+     * the derived admin status here too, with no explicit action needed on this region.
+     */
+    fun isEffectiveAdmin(player: OfflinePlayer, area: Area): Boolean =
+        isEffectiveAdmin(player, area, mutableSetOf())
+
+    private fun isEffectiveAdmin(player: OfflinePlayer, area: Area, visiting: MutableSet<String>): Boolean {
+        if (area.isAdmin(player)) return true
+        val target = area.target
+        if (target !is AreaTarget.Region) return false
+        if (!visiting.add(target.name.lowercase())) return false // cycle guard
+        if (area.parents.isEmpty()) return false
+        return area.parents.all { parentName ->
+            val parentArea = regions[parentName.lowercase()] ?: return@all false
+            isEffectiveAdmin(player, parentArea, visiting)
+        }
+    }
+
+    /** True if giving [childName] a parent of [newParentName] would create a cycle in the parent graph. */
+    fun wouldCreateCycle(childName: String, newParentName: String): Boolean {
+        if (childName.equals(newParentName, ignoreCase = true)) return true
+        return dependsOn(newParentName, childName, mutableSetOf())
+    }
+
+    /** Does [regionName] depend on [candidate] - i.e. is [candidate] one of its parents, directly or transitively? */
+    private fun dependsOn(regionName: String, candidate: String, visited: MutableSet<String>): Boolean {
+        val key = regionName.lowercase()
+        if (!visited.add(key)) return false
+        val area = regions[key] ?: return false
+        if (area.parents.any { it.equals(candidate, ignoreCase = true) }) return true
+        return area.parents.any { dependsOn(it, candidate, visited) }
+    }
+
     fun load() {
         regions.clear()
         worldAreas.clear()
@@ -88,6 +125,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
             area.protections.addAll(section.getStringList("protections").mapNotNull { AreaProtection.parse(it) })
+            area.parents.addAll(section.getStringList("parents"))
             regions[key] = area
         }
 
@@ -144,6 +182,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
                 yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
             }
             yaml.set("$base.protections", area.protections.map { it.name })
+            yaml.set("$base.parents", area.parents.toList())
         }
 
         worldAreas.forEach { (key, area) ->

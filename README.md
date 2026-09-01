@@ -71,6 +71,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 - **월드 기본 구역(world)**: 어떤 구역에도 속하지 않는, 월드의 나머지 모든 공간. `world:<월드이름>` 으로 지정.
 - **멤버(member)**: 해당 구역에서 모든 권한을 항상 허용받는 플레이어 목록.
 - **admin("땅 주인")**: 서버 OP가 아니어도, 그 구역 하나에 한해 `/area modify`/`/area info` 를 쓸 수 있는 플레이어 목록. member/권한과는 별개로, "이 명령을 쓸 수 있는가"에 대한 권한입니다. admin을 임명/해제하는 것 자체는 OP만 가능합니다 (admin이 스스로를 승격시키거나 다른 admin을 마음대로 못 늘리도록).
+- **parent(부모 구역, admin 상속)**: 구역(region)에만 설정 가능. 어떤 구역에 부모 구역들을 지정하면, **모든 부모 구역에서 admin인 플레이어만** 자식 구역도 자동으로 admin이 됩니다 (AND 조건 — 부모가 여러 개면 전부 만족해야 함). 부모 중 하나에서라도 admin 자격을 잃으면 자식의 상속된 admin 자격도 즉시 같이 빠집니다. 순환 참조(자기 자신이 조상이 되는 구조)는 만들 수 없고, 설정도 OP 전용입니다.
 - **`@everyone` 권한**: 멤버가 아닌 모든 플레이어에게 적용되는 기본 권한. 새 구역은 `administration` 을 제외한 모든 권한이 기본 허용 상태로 시작합니다.
 - **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능 — 합집합 방식, 뺏는 방향으로는 동작하지 않음).
 
@@ -124,15 +125,25 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area info <region:이름|world:월드이름>
 /area modify <target> member add <닉네임>
 /area modify <target> member remove <닉네임>
-/area modify <target> admin add <닉네임>       # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
-/area modify <target> admin remove <닉네임>    # OP 전용
+/area modify <target> admin add <닉네임>              # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
+/area modify <target> admin remove <닉네임>           # OP 전용
+/area modify region:<이름> parent add <부모구역이름>    # OP 전용 - 모든 부모의 admin이면 자동 admin
+/area modify region:<이름> parent remove <부모구역이름> # OP 전용
 /area modify <target> role permission @everyone <add|remove> <권한>
 /area modify <target> role permission <닉네임> <add|remove> <권한>
 /area modify <target> protection <add|remove> <보호>
 ```
 
-`region`/`world` 생성·삭제와 `list`, admin 임명/해제는 OP만 가능합니다. `modify`(member/role/protection)와 `info`는
-OP 이거나, 그 구역의 admin으로 등록된 플레이어면 자기 구역에 한해 사용할 수 있습니다.
+`region`/`world` 생성·삭제와 `list`, admin 임명/해제, parent 설정은 OP만 가능합니다. `modify`(member/role/protection)와
+`info`는 OP 이거나, 그 구역의 admin으로 등록된(또는 parent를 통해 상속받은) 플레이어면 자기 구역에 한해 사용할 수 있습니다.
+
+parent 예시:
+```
+/area modify region:lime parent add white
+/area modify region:lime parent add green
+```
+→ `white`와 `green` 양쪽 모두에서 admin인 플레이어만 `lime`도 자동으로 admin이 됩니다. 이후 그 플레이어가
+`green`의 admin에서 제거되면, `lime`에 대한 admin 자격도 (별도 명령 없이) 즉시 같이 사라집니다.
 
 역할(`@everyone`)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.
 

@@ -33,9 +33,9 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
     /** Server OPs (or anyone explicitly granted brockenreichland.area) manage everything, globally. */
     private fun isOpLevel(sender: CommandSender): Boolean = sender.hasPermission("brockenreichland.area")
 
-    /** OP-level access, or being listed as that specific area's admin ("land owner"). */
+    /** OP-level access, or being that specific area's admin ("land owner") - directly or inherited via parents. */
     private fun canManage(sender: CommandSender, area: Area): Boolean =
-        isOpLevel(sender) || (sender is Player && area.isAdmin(sender))
+        isOpLevel(sender) || (sender is Player && areaManager.isEffectiveAdmin(sender, area))
 
     private fun requireOp(sender: CommandSender): Boolean {
         if (isOpLevel(sender)) return true
@@ -55,6 +55,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e/area modify <target> member remove <닉네임>")
         sender.sendMessage("§e/area modify <target> admin add <닉네임> §7- OP 전용, 이 구역만 관리할 수 있는 권한 부여")
         sender.sendMessage("§e/area modify <target> admin remove <닉네임> §7- OP 전용")
+        sender.sendMessage("§e/area modify region:<이름> parent add <부모구역이름> §7- OP 전용, 모든 부모의 admin이면 이 구역도 자동 admin")
+        sender.sendMessage("§e/area modify region:<이름> parent remove <부모구역이름> §7- OP 전용")
         sender.sendMessage("§e/area modify <target> role permission @everyone <add|remove> <권한>")
         sender.sendMessage("§e/area modify <target> role permission <닉네임> <add|remove> <권한>")
         sender.sendMessage("§e/area modify <target> protection <add|remove> <보호>")
@@ -221,6 +223,9 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         @Suppress("DEPRECATION")
         val adminNames = area.admins.mapNotNull { Bukkit.getOfflinePlayer(it).name }
         sender.sendMessage("§7admin: ${if (adminNames.isEmpty()) "없음" else adminNames.joinToString(", ")}")
+        if (area.parents.isNotEmpty()) {
+            sender.sendMessage("§7부모 구역: ${area.parents.joinToString(", ")} §7(전부에서 admin이어야 이 구역도 admin)")
+        }
         sender.sendMessage(
             "§7@everyone 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.label }}"
         )
@@ -258,16 +263,18 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         if (args.size < 3) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|admin|role|protection> ...")
+            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|admin|parent|role|protection> ...")
             return
         }
 
         val category = args[2].lowercase()
 
-        // admin add/remove is OP-only (grants/revokes the ability to manage this area at all, so
-        // an area admin cannot escalate themselves or others).
-        if (category == "admin") {
-            if (requireOp(sender)) handleModifyAdmin(sender, area, args)
+        // admin add/remove and parent add/remove are OP-only: both affect who can manage this area
+        // at all (parent inherits admin status), so an area admin can't escalate themselves,
+        // grant others admin, or rewire inheritance to pick up extra admin rights.
+        if (category == "admin" || category == "parent") {
+            if (!requireOp(sender)) return
+            if (category == "admin") handleModifyAdmin(sender, area, args) else handleModifyParent(sender, area, args)
             return
         }
 
@@ -280,7 +287,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             "member" -> handleModifyMember(sender, area, args)
             "role" -> handleModifyRole(sender, area, args)
             "protection" -> handleModifyProtection(sender, area, args)
-            else -> sender.sendMessage("§c'member', 'admin', 'role' 또는 'protection' 이어야 합니다.")
+            else -> sender.sendMessage("§c'member', 'admin', 'parent', 'role' 또는 'protection' 이어야 합니다.")
         }
     }
 
@@ -302,6 +309,46 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             "remove" -> {
                 area.admins.remove(offlinePlayer.uniqueId)
                 sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 admin에서 제거했습니다.")
+            }
+            else -> {
+                sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+                return
+            }
+        }
+        areaManager.save()
+    }
+
+    private fun handleModifyParent(sender: CommandSender, area: Area, args: Array<out String>) {
+        val childTarget = area.target
+        if (childTarget !is AreaTarget.Region) {
+            sender.sendMessage("§c월드 구역에는 부모를 설정할 수 없습니다.")
+            return
+        }
+        if (args.size < 5) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} parent <add|remove> <부모구역이름>")
+            return
+        }
+        val action = args[3].lowercase()
+        val parentName = args[4]
+
+        when (action) {
+            "add" -> {
+                val parentArea = areaManager.region(parentName)
+                if (parentArea == null) {
+                    sender.sendMessage("§c존재하지 않는 구역입니다: $parentName")
+                    return
+                }
+                if (areaManager.wouldCreateCycle(childTarget.name, parentName)) {
+                    sender.sendMessage("§c순환 참조가 발생해서 부모로 추가할 수 없습니다: $parentName")
+                    return
+                }
+                val canonicalName = (parentArea.target as AreaTarget.Region).name
+                area.parents.add(canonicalName)
+                sender.sendMessage("§e[${childTarget.name}]§f 구역에 §e[$canonicalName]§f 구역을 부모로 추가했습니다.")
+            }
+            "remove" -> {
+                area.parents.removeIf { it.equals(parentName, ignoreCase = true) }
+                sender.sendMessage("§e[${childTarget.name}]§f 구역에서 §e[$parentName]§f 구역을 부모에서 제거했습니다.")
             }
             else -> {
                 sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
@@ -438,13 +485,14 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 } else {
                     emptyList()
                 }
-                "modify" -> listOf("member", "admin", "role", "protection").filter { it.startsWith(args[2].lowercase()) }
+                "modify" -> listOf("member", "admin", "parent", "role", "protection").filter { it.startsWith(args[2].lowercase()) }
                 else -> emptyList()
             }
             4 -> if (args[0].lowercase() == "modify") {
                 when (args[2].lowercase()) {
                     "member" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     "admin" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
+                    "parent" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     "role" -> listOf("permission").filter { it.startsWith(args[3].lowercase()) }
                     "protection" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     else -> emptyList()
@@ -459,6 +507,11 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 (args[3].lowercase() == "add" || args[3].lowercase() == "remove")
             ) {
                 AreaProtection.entries.map { it.label }.filter { it.startsWith(args[4], ignoreCase = true) }
+            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "parent" &&
+                (args[3].lowercase() == "add" || args[3].lowercase() == "remove")
+            ) {
+                areaManager.regions().map { it.target.key().removePrefix("region:") }
+                    .filter { it.startsWith(args[4], ignoreCase = true) }
             } else {
                 emptyList()
             }
