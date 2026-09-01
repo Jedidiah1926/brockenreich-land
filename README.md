@@ -123,10 +123,10 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area world delete <월드이름>                           # world:<월드이름> 을 기본값으로 초기화
 /area list
 /area info <region:이름|world:월드이름>
-/area modify <target> role member add <닉네임>
-/area modify <target> role member remove <닉네임>
-/area modify <target> role admin add <닉네임>          # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
-/area modify <target> role admin remove <닉네임>       # OP 전용
+/area modify <target> role add member <닉네임>
+/area modify <target> role remove member <닉네임>
+/area modify <target> role add admin <닉네임>          # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
+/area modify <target> role remove admin <닉네임>       # OP 전용
 /area modify region:<이름> parent add <부모구역이름>    # OP 전용 - 모든 부모의 admin이면 자동 admin
 /area modify region:<이름> parent remove <부모구역이름> # OP 전용
 /area modify <target> role permission @everyone <add|remove> <권한>
@@ -154,7 +154,7 @@ parent 예시:
 예시:
 ```
 /area region create green
-/area modify region:green role member add Steve
+/area modify region:green role add member Steve
 /area world create world
 /area modify world:world role permission @everyone remove entrance
 /area modify world:world role permission Alex add entrance
