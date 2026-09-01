@@ -477,17 +477,22 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Redstone dust sitting in a REDSTONE-protected area freezes its current whenever any of its
-    // six neighbors belongs to a different area, so a signal originating outside that area can't
-    // propagate in through it (or vice versa). BlockRedstoneEvent is NOT Cancellable - influence it
-    // only via setNewCurrent, and never add ignoreCancelled to this handler.
+    // Redstone dust freezes its current whenever any of its six neighbors belongs to a different
+    // area and either side has REDSTONE protection on - matching the either-side pattern used by
+    // piston/dispenser/hopper elsewhere, rather than only ever checking the changing wire's own
+    // area. That matters here specifically because BlockRedstoneEvent fires separately per wire
+    // block in a network: a wire just outside a protected boundary needs its own event frozen too
+    // (using the *protected* neighbor's flag) to actually stop a signal from leaking out, not just
+    // the protected side's own event (which only stops it from leaking in). BlockRedstoneEvent is
+    // NOT Cancellable - influence it only via setNewCurrent, and never add ignoreCancelled here.
     @EventHandler(priority = EventPriority.LOW)
     fun onBlockRedstone(event: BlockRedstoneEvent) {
         val wireArea = areaManager.areaAt(event.block.location)
-        if (!wireArea.protections.contains(AreaProtection.REDSTONE)) return
         val faces = arrayOf(BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)
         val crossesBoundary = faces.any { face ->
-            areaManager.areaAt(event.block.getRelative(face).location) !== wireArea
+            val neighborArea = areaManager.areaAt(event.block.getRelative(face).location)
+            neighborArea !== wireArea &&
+                (wireArea.protections.contains(AreaProtection.REDSTONE) || neighborArea.protections.contains(AreaProtection.REDSTONE))
         }
         if (crossesBoundary) {
             event.newCurrent = event.oldCurrent
