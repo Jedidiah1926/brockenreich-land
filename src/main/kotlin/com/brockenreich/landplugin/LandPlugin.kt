@@ -4,6 +4,7 @@ import com.brockenreich.landplugin.area.AreaBoatGuard
 import com.brockenreich.landplugin.area.AreaCommand
 import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
+import com.brockenreich.landplugin.area.AreaPlayerGuard
 import com.brockenreich.landplugin.area.AreaProtectionListener
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -25,6 +26,7 @@ class LandPlugin : JavaPlugin() {
         server.pluginManager.registerEvents(AreaMoveListener(areaManager), this)
         server.pluginManager.registerEvents(AreaProtectionListener(areaManager), this)
         AreaBoatGuard(this, areaManager).start()
+        AreaPlayerGuard(this, areaManager).start()
 
         logger.info("BrockenreichLand enabled.")
     }

@@ -5,6 +5,7 @@ import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.player.PlayerBedEnterEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerTeleportEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
@@ -67,6 +68,23 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         }
 
         if (!toArea.canEnter(player)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Sleeping snaps the player's exact position onto the bed directly (not through a movement
+    // packet), so PlayerMoveEvent never sees it - without this, a bed straddling a boundary would
+    // let someone sleep their way into/out of an area with no entrance/exit permission.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBedEnter(event: PlayerBedEnterEvent) {
+        val player = event.player
+        if (player.hasPermission("brockenreichland.area.bypass")) return
+
+        val fromArea = areaManager.areaAt(player.location)
+        val toArea = areaManager.areaAt(event.bed.location)
+        if (fromArea === toArea) return
+
+        if (!fromArea.canExit(player) || !toArea.canEnter(player)) {
             event.isCancelled = true
         }
     }
