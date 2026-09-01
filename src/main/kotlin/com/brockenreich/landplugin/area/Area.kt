@@ -39,7 +39,8 @@ enum class AreaProtection(val label: String) {
     OVERFLOW("overflow"),
     REDSTONE("redstone"),
     FIRE("fire"),
-    FIRE_SPREAD("fireSpread");
+    FIRE_SPREAD("fireSpread"),
+    DISPENSER("dispenser");
 
     companion object {
         fun parse(value: String): AreaProtection? =

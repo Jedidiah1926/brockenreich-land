@@ -4,6 +4,7 @@ import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
+import org.bukkit.block.data.Directional
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -12,6 +13,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockBurnEvent
+import org.bukkit.event.block.BlockDispenseEvent
 import org.bukkit.event.block.BlockIgniteEvent
 import org.bukkit.event.block.BlockExplodeEvent
 import org.bukkit.event.block.BlockFromToEvent
@@ -183,6 +185,23 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onBucketFill(event: PlayerBucketFillEvent) {
         if (denied(event.player, event.blockClicked.location, AreaPermission.BUCKET_FILL)) {
+            event.isCancelled = true
+        }
+    }
+
+    // A dispenser shooting an arrow/potion/firework or squirting a bucket's liquid out its front
+    // face must not do so across a DISPENSER-protected boundary, in either direction, while still
+    // working normally for a target inside the same area.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onDispense(event: BlockDispenseEvent) {
+        val facing = (event.block.blockData as? Directional)?.facing ?: return
+        val from = event.block.location
+        val to = from.clone().add(facing.modX.toDouble(), facing.modY.toDouble(), facing.modZ.toDouble())
+        val fromArea = areaManager.areaAt(from)
+        val toArea = areaManager.areaAt(to)
+        if (fromArea !== toArea &&
+            (fromArea.protections.contains(AreaProtection.DISPENSER) || toArea.protections.contains(AreaProtection.DISPENSER))
+        ) {
             event.isCancelled = true
         }
     }
