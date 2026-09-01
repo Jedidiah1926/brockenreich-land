@@ -32,12 +32,16 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     /** [appliedAge] is the highest age this entry has already written to its block, to avoid redundant block updates. */
     private data class Entry(val type: FarmCropType, var plantedAt: Long, var dueAt: Long, var appliedAge: Int)
 
+    private data class DisplayEntry(val hologram: TextDisplay, val shownAt: Long)
+
     private val file = File(dataFolder, "farm.yml")
     private val entries = mutableMapOf<Key, Entry>()
     private val growthMillis = mutableMapOf<FarmCropType, Long>()
 
     /** Live countdown holograms toggled on via shift-right-click - purely cosmetic, not persisted across restarts. */
-    private val displays = mutableMapOf<Key, TextDisplay>()
+    private val displays = mutableMapOf<Key, DisplayEntry>()
+
+    private val displayLifetimeMillis = 60_000L
 
     /** Set by /farm time test|default - a non-null value overrides every crop's configured duration for new plantings. */
     private var testDurationMillis: Long? = null
@@ -75,6 +79,8 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
      * Shift-right-click toggle: spawns a floating name-tag-style hologram 1.5 blocks above
      * [block] showing its live remaining time (updated every tick() second), or removes it if one
      * is already showing there. Returns false (nothing done) if [block] isn't a tracked planting.
+     * Whether toggled off manually or not, it also disappears on its own [displayLifetimeMillis]
+     * after being shown (see tick()), so it never lingers indefinitely if the player walks away.
      */
     fun toggleCountdownDisplay(block: Block): Boolean {
         val key = keyOf(block)
@@ -82,15 +88,16 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
 
         val existing = displays.remove(key)
         if (existing != null) {
-            existing.remove()
+            existing.hologram.remove()
             return true
         }
 
         val display = block.world.spawn(block.location.add(0.5, 1.5, 0.5), TextDisplay::class.java)
         display.billboard = Display.Billboard.CENTER
         display.isPersistent = false
-        display.text = formatRemaining(entry, System.currentTimeMillis())
-        displays[key] = display
+        val now = System.currentTimeMillis()
+        display.text = formatRemaining(entry, now)
+        displays[key] = DisplayEntry(display, now)
         return true
     }
 
@@ -125,7 +132,7 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         if (entries.remove(key) != null) {
             save()
         }
-        displays.remove(key)?.remove()
+        displays.remove(key)?.hologram?.remove()
     }
 
     fun start() {
@@ -146,7 +153,7 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
             val world = Bukkit.getWorld(key.world)
             if (world == null) {
                 iterator.remove()
-                displays.remove(key)?.remove()
+                displays.remove(key)?.hologram?.remove()
                 changed = true
                 continue
             }
@@ -170,12 +177,19 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
                     celebrateGrowth(block)
                 }
                 iterator.remove()
-                displays.remove(key)?.remove()
+                displays.remove(key)?.hologram?.remove()
                 changed = true
                 continue
             }
 
-            displays[key]?.text = formatRemaining(entry, now)
+            displays[key]?.let { d ->
+                if (now - d.shownAt >= displayLifetimeMillis) {
+                    d.hologram.remove()
+                    displays.remove(key)
+                } else {
+                    d.hologram.text = formatRemaining(entry, now)
+                }
+            }
 
             if (advanceProportionally(block, entry, now)) {
                 changed = true
