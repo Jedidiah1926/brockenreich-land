@@ -5,7 +5,7 @@ import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
-import org.bukkit.block.data.Levelled
+import org.bukkit.block.data.type.Farmland
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -104,9 +104,8 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
     // which never happen with randomTickSpeed 0.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onPlaceFarmland(event: BlockPlaceEvent) {
-        if (event.blockPlaced.type != Material.FARMLAND) return
-        val data = event.blockPlaced.blockData as? Levelled ?: return
-        data.level = data.maximumLevel
+        val data = event.blockPlaced.blockData as? Farmland ?: return
+        data.moisture = data.maximumMoisture
         event.blockPlaced.blockData = data
     }
 
