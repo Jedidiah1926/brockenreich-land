@@ -101,23 +101,15 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
                 // bonemeal attempts if it's genuinely obstructed (not enough open space for a
                 // tree, or - for mushrooms - any block at all in the way, not just logs); the
                 // simple Ageable crops and melon/pumpkin's direct swap always succeed here, so
-                // this only ever fires for the structure-growth types.
+                // this only ever fires for the structure-growth types. A failure is final here -
+                // no retry is scheduled, so a blocked sapling/mushroom just stays as-is forever
+                // (clearing the obstruction afterward does nothing; it would need replanting).
                 if (isStillGrowing(block, entry.type)) {
                     failGrowth(block)
-                    // Don't abandon it - whatever's blocking it might get cleared later, so
-                    // schedule another attempt instead of leaving it stuck forever untracked.
-                    val duration = durationFor(entry.type)
-                    if (duration == null) {
-                        iterator.remove()
-                    } else {
-                        entry.plantedAt = now
-                        entry.dueAt = now + duration
-                        entry.appliedAge = 0
-                    }
                 } else {
                     celebrateGrowth(block)
-                    iterator.remove()
                 }
+                iterator.remove()
                 changed = true
                 continue
             }
