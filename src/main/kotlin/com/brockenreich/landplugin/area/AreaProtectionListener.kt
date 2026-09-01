@@ -34,6 +34,7 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
 import org.bukkit.event.entity.ExplosionPrimeEvent
+import org.bukkit.event.entity.PlayerLeashEntityEvent
 import org.bukkit.event.entity.LingeringPotionSplashEvent
 import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
@@ -50,7 +51,6 @@ import org.bukkit.event.player.PlayerInteractAtEntityEvent
 import org.bukkit.event.block.SpongeAbsorbEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
-import org.bukkit.event.player.PlayerLeashEntityEvent
 import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
 
