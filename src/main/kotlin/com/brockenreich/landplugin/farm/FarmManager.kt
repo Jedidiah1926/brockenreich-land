@@ -91,9 +91,23 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         return true
     }
 
+    // Shows the top two units only (day+hour, hour+minute, minute+second), except once only
+    // seconds are left - a multi-day timer like a 2x2 jungle tree's doesn't need minute/second
+    // precision, and a near-finished one doesn't need to show "0분" alongside the seconds.
     private fun formatRemaining(entry: Entry, now: Long): String {
-        val remaining = ((entry.dueAt - now) / 1000).coerceAtLeast(0)
-        return "§f${remaining / 60}분 ${remaining % 60}초"
+        val totalSeconds = ((entry.dueAt - now) / 1000).coerceAtLeast(0)
+        val days = totalSeconds / 86_400
+        val hours = (totalSeconds % 86_400) / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+
+        val text = when {
+            days > 0 -> "${days}일 ${hours}시간"
+            hours > 0 -> "${hours}시간 ${minutes}분"
+            minutes > 0 -> "${minutes}분 ${seconds}초"
+            else -> "${seconds}초"
+        }
+        return "§f$text"
     }
 
     /**
