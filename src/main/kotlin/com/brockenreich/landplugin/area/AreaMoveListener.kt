@@ -1,6 +1,7 @@
 package com.brockenreich.landplugin.area
 
 import org.bukkit.entity.Boat
+import org.bukkit.entity.Minecart
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -89,16 +90,27 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // PlayerMoveEvent does not fire while a player is riding a vehicle - a boat moves via
+    // PlayerMoveEvent does not fire while a player is riding a vehicle - a boat/minecart moves via
     // VehicleMoveEvent instead, with its passengers along for the ride, so entrance/exit is
-    // checked separately here (using dedicated boatEntrance/boatExit permissions) for boats.
-    // VehicleMoveEvent isn't Cancellable, so a denied move is undone by teleporting the boat
-    // back to its previous location instead of setting isCancelled - and `ignoreCancelled` must
-    // NOT be set here, since Bukkit's generated executor casts to Cancellable to honor it and
-    // VehicleMoveEvent doesn't implement that interface, throwing at every single firing.
+    // checked separately here (using dedicated boatEntrance/boatExit or cartEntrance/cartExit
+    // permissions depending on vehicle type). VehicleMoveEvent isn't Cancellable, so a denied move
+    // is undone by teleporting the vehicle back to its previous location instead of setting
+    // isCancelled - and `ignoreCancelled` must NOT be set here, since Bukkit's generated executor
+    // casts to Cancellable to honor it and VehicleMoveEvent doesn't implement that interface,
+    // throwing at every single firing.
+    //
+    // Minecarts only get this one check (teleport-back on a denied move) - unlike boats, they
+    // don't get a per-tick guard (AreaBoatGuard has no minecart equivalent) or a dedicated
+    // dismount check (VehicleExit below stays boat-only). A minecart on a rail is far less likely
+    // to end up parked straddling a boundary the way a freely-floating boat can, so this covers
+    // the realistic case without the extra machinery.
     @EventHandler(priority = EventPriority.LOW)
     fun onVehicleMove(event: VehicleMoveEvent) {
-        if (event.vehicle !is Boat) return
+        val (enterPermission, exitPermission) = when (event.vehicle) {
+            is Boat -> AreaPermission.BOAT_ENTRANCE to AreaPermission.BOAT_EXIT
+            is Minecart -> AreaPermission.CART_ENTRANCE to AreaPermission.CART_EXIT
+            else -> return
+        }
         val from = event.from
         val to = event.to
         if (from.blockX == to.blockX && from.blockY == to.blockY &&
@@ -115,11 +127,12 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         val toArea = areaManager.areaAt(to)
         if (fromArea === toArea) return
 
-        val denied = players.any { !fromArea.can(it, AreaPermission.BOAT_EXIT) } ||
-            players.any { !toArea.can(it, AreaPermission.BOAT_ENTRANCE) }
+        val denied = players.any { !fromArea.can(it, exitPermission) } ||
+            players.any { !toArea.can(it, enterPermission) }
         if (denied) {
-            // Zero the velocity too - paddling keeps pushing momentum into the boat each tick, and
-            // a teleport alone doesn't clear that, letting it creep through over several ticks.
+            // Zero the velocity too - continued propulsion (paddling, powered rail) keeps pushing
+            // momentum in each tick, and a teleport alone doesn't clear that, letting it creep
+            // through over several ticks.
             event.vehicle.velocity = Vector(0.0, 0.0, 0.0)
             event.vehicle.teleport(from)
         }

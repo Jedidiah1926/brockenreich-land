@@ -9,6 +9,8 @@ enum class AreaPermission(val label: String) {
     EXIT("exit"),
     BOAT_ENTRANCE("boatEntrance"),
     BOAT_EXIT("boatExit"),
+    CART_ENTRANCE("cartEntrance"),
+    CART_EXIT("cartExit"),
     INTERACTION("interaction"),
     PICKUP_ITEM("pickupItem"),
     DROP_ITEM("dropItem"),
