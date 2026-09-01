@@ -37,6 +37,7 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerInteractAtEntityEvent
+import org.bukkit.event.block.SpongeAbsorbEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.StructureGrowEvent
@@ -380,6 +381,18 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (!originArea.protections.contains(AreaProtection.OVERFLOW)) return
         event.blocks.removeIf { blockState ->
             areaManager.areaAt(blockState.location) !== originArea
+        }
+    }
+
+    // A sponge sitting in a SPONGE-protected area must not reach out and absorb water sitting in
+    // a different area - filtered the same way as overflow/fertilize: only the absorbed blocks
+    // that land in the sponge's own area survive.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onSpongeAbsorb(event: SpongeAbsorbEvent) {
+        val spongeArea = areaManager.areaAt(event.block.location)
+        if (!spongeArea.protections.contains(AreaProtection.SPONGE)) return
+        event.blocks.removeIf { blockState ->
+            areaManager.areaAt(blockState.location) !== spongeArea
         }
     }
 

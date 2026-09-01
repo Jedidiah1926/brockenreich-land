@@ -40,7 +40,8 @@ enum class AreaProtection(val label: String) {
     REDSTONE("redstone"),
     FIRE("fire"),
     FIRE_SPREAD("fireSpread"),
-    DISPENSER("dispenser");
+    DISPENSER("dispenser"),
+    SPONGE("sponge");
 
     companion object {
         fun parse(value: String): AreaProtection? =
