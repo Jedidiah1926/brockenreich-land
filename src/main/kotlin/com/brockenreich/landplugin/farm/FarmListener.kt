@@ -5,6 +5,7 @@ import net.kyori.adventure.title.Title
 import org.bukkit.GameMode
 import org.bukkit.Material
 import org.bukkit.Sound
+import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -30,8 +31,8 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         )
     }
 
-    // Only an item enchanted via /farm animate may be planted as one of the 14 tracked farm
-    // crops - an un-enchanted seed/sapling/etc. simply refuses to go in the ground at all.
+    // Only an item enchanted via /farm animate may be planted as one of the tracked farm crops -
+    // an un-enchanted seed/sapling/etc. simply refuses to go in the ground at all.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onPlace(event: BlockPlaceEvent) {
         val type = FarmCropType.forItem(event.itemInHand.type) ?: return
@@ -40,9 +41,45 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
             event.player.sendMessage("§c인챈트되지 않은 씨앗/모종은 심을 수 없습니다. /farm animate 로 먼저 인챈트하세요.")
             return
         }
-        if (type.autoGrows) {
-            farmManager.plant(event.blockPlaced, type)
+        when (type) {
+            FarmCropType.JUNGLE_SAPLING -> handleJunglePlacement(event.blockPlaced)
+            FarmCropType.DARK_OAK_SAPLING -> handleDarkOakPlacement(event.blockPlaced)
+            else -> if (type.autoGrows) farmManager.plant(event.blockPlaced, type)
         }
+    }
+
+    // A jungle sapling grows fine alone (the lone JUNGLE_SAPLING duration), but if this placement
+    // completes a 2x2 of jungle saplings, all 4 corners - including ones already ticking down on
+    // the lone duration - are rescheduled together as a JUNGLE_BIG_TREE instead.
+    private fun handleJunglePlacement(block: Block) {
+        val group = findCompleted2x2(block, Material.JUNGLE_SAPLING)
+        if (group != null) {
+            group.forEach { farmManager.plant(it, FarmCropType.JUNGLE_BIG_TREE) }
+        } else {
+            farmManager.plant(block, FarmCropType.JUNGLE_SAPLING)
+        }
+    }
+
+    // Dark oak can never grow as a lone sapling in vanilla - only as a 2x2. Scheduling a growth
+    // timer for an incomplete corner would just waste forceFullyGrown's bonemeal attempts on a
+    // sapling that can never actually grow, so a corner stays untracked (and simply sits there,
+    // same as vanilla) until this placement completes the group for all 4 at once.
+    private fun handleDarkOakPlacement(block: Block) {
+        val group = findCompleted2x2(block, Material.DARK_OAK_SAPLING)
+        group?.forEach { farmManager.plant(it, FarmCropType.DARK_OAK_SAPLING) }
+    }
+
+    /** If [block] (already placed, of [species]) completes a 2x2 group of that species at its Y level, the 4 blocks; else null. */
+    private fun findCompleted2x2(block: Block, species: Material): List<Block>? {
+        for (dx in -1..0) {
+            for (dz in -1..0) {
+                val corners = (0..1).flatMap { ix ->
+                    (0..1).map { iz -> block.world.getBlockAt(block.x + dx + ix, block.y, block.z + dz + iz) }
+                }
+                if (corners.all { it.type == species }) return corners
+            }
+        }
+        return null
     }
 
     // Farmland mined by a player drops itself (not vanilla's dirt) so it can be replanted

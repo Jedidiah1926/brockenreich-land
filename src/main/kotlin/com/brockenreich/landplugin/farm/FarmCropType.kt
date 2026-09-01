@@ -3,7 +3,7 @@ package com.brockenreich.landplugin.farm
 import org.bukkit.Material
 
 /**
- * The 14 items /farm animate can enchant. `autoGrows` marks whether AreaFarmManager schedules a
+ * The items /farm animate can enchant. `autoGrows` marks whether AreaFarmManager schedules a
  * fixed-time full-growth for it once planted - the three height-growing plants (cactus, sugar
  * cane, bamboo) are excluded from that (per design decision: they keep growing however tall
  * naturally, so a single "fully grown" timer doesn't apply the same way it does to an age-capped
@@ -19,12 +19,15 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
     WHEAT("wheatSeeds", "밀 씨앗", true, 60.0),
     NETHER_WART("netherWart", "네더 와트", true, 30.0),
     MUSHROOM("mushroom", "버섯", true, 120.0),
-    // Oak/spruce/birch/acacia/dark oak/cherry saplings and mangrove propagules - a normal 1x1
-    // tree. Jungle is split out below since a lone jungle sapling grows much slower than the
-    // rest. A 2x2 "big tree" arrangement (dark oak always, jungle optionally) isn't given its own
-    // duration here - see FarmManager's forceFullyGrown doc for why that needs no special code.
+    // Oak/spruce/birch/acacia/cherry saplings and mangrove propagules - a normal 1x1 tree.
+    // Jungle and dark oak are split out below: a lone jungle sapling still grows (much slower),
+    // while dark oak can only ever grow as a 2x2 "big tree" - see FarmListener.onPlace, which
+    // detects a completed 2x2 of either species and schedules JUNGLE_BIG_TREE/DARK_OAK_SAPLING
+    // for all 4 corners instead of the lone duration.
     SAPLING("sapling", "나무 묘목", true, 180.0),
-    JUNGLE_SAPLING("jungleSapling", "정글 나무 묘목", true, 2160.0),
+    JUNGLE_SAPLING("jungleSapling", "정글 나무 묘목 (1×1)", true, 2160.0),
+    JUNGLE_BIG_TREE("jungleBigTree", "정글 큰 나무 (2×2)", true, 10080.0),
+    DARK_OAK_SAPLING("darkOakSapling", "다크 오크 나무 묘목 (2×2)", true, 480.0),
     COCOA("cocoa", "코코아", true, 60.0),
     CACTUS("cactus", "선인장", false, 0.0),
     SUGAR_CANE("sugarCane", "사탕수수", false, 0.0),
@@ -42,13 +45,24 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
             put(Material.NETHER_WART, NETHER_WART)
             put(Material.RED_MUSHROOM, MUSHROOM)
             put(Material.BROWN_MUSHROOM, MUSHROOM)
+            put(Material.CRIMSON_FUNGUS, MUSHROOM)
+            put(Material.WARPED_FUNGUS, MUSHROOM)
+            // Item-side mapping only: which JUNGLE_SAPLING/JUNGLE_BIG_TREE or DARK_OAK_SAPLING a
+            // held item resolves to is irrelevant here since /farm animate only cares whether the
+            // material is farm-manageable at all - the jungle/dark-oak 2x2 distinction is a
+            // planting-time decision made in FarmListener, not an item-type one.
             put(Material.JUNGLE_SAPLING, JUNGLE_SAPLING)
+            put(Material.DARK_OAK_SAPLING, DARK_OAK_SAPLING)
+            put(Material.AZALEA, SAPLING)
             put(Material.COCOA_BEANS, COCOA)
             put(Material.CACTUS, CACTUS)
             put(Material.SUGAR_CANE, SUGAR_CANE)
             put(Material.BAMBOO, BAMBOO)
             Material.entries
-                .filter { (it.name.endsWith("_SAPLING") && it != Material.JUNGLE_SAPLING) || it.name == "MANGROVE_PROPAGULE" }
+                .filter {
+                    (it.name.endsWith("_SAPLING") && it != Material.JUNGLE_SAPLING && it != Material.DARK_OAK_SAPLING) ||
+                        it.name == "MANGROVE_PROPAGULE"
+                }
                 .forEach { put(it, SAPLING) }
         }
 

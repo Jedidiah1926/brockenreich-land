@@ -128,9 +128,11 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     }
 
     private fun isStillGrowing(block: Block, type: FarmCropType): Boolean = when (type) {
-        FarmCropType.MUSHROOM -> block.type == Material.RED_MUSHROOM || block.type == Material.BROWN_MUSHROOM
-        FarmCropType.SAPLING, FarmCropType.JUNGLE_SAPLING ->
-            block.type.name.endsWith("_SAPLING") || block.type == Material.MANGROVE_PROPAGULE
+        FarmCropType.MUSHROOM ->
+            block.type == Material.RED_MUSHROOM || block.type == Material.BROWN_MUSHROOM ||
+                block.type == Material.CRIMSON_FUNGUS || block.type == Material.WARPED_FUNGUS
+        FarmCropType.SAPLING, FarmCropType.JUNGLE_SAPLING, FarmCropType.JUNGLE_BIG_TREE, FarmCropType.DARK_OAK_SAPLING ->
+            block.type.name.endsWith("_SAPLING") || block.type == Material.MANGROVE_PROPAGULE || block.type == Material.AZALEA
         else -> (block.blockData as? Ageable)?.let { it.age < it.maximumAge } ?: false
     }
 
