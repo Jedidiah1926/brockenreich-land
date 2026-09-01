@@ -11,11 +11,14 @@ commands:
     usage: /<command> <region|world|list|info|modify> ...
   farm:
     description: Enchant a held farm item so it can be planted with fixed-time growth.
-    usage: /<command> animate
+    usage: /<command> <animate|time test|time default>
 permissions:
   brockenreichland.area:
     description: Manage land areas
     default: op
   brockenreichland.area.bypass:
     description: Bypass area entrance/exit restrictions
+    default: op
+  brockenreichland.farm.admin:
+    description: Override farm crop growth times for testing
     default: op

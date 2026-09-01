@@ -43,7 +43,7 @@ class LandPlugin : JavaPlugin() {
 
         val farmItems = FarmItems(this)
         getCommand("farm")?.let { command ->
-            val executor = FarmCommand(farmItems)
+            val executor = FarmCommand(farmManager, farmItems)
             command.setExecutor(executor)
             command.tabCompleter = executor
         }
