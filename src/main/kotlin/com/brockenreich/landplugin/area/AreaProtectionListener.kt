@@ -33,6 +33,8 @@ import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
+import org.bukkit.event.inventory.InventoryMoveItemEvent
+import org.bukkit.event.inventory.InventoryPickupItemEvent
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent
 import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
@@ -215,6 +217,35 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         val toArea = areaManager.areaAt(to)
         if (fromArea !== toArea &&
             (fromArea.protections.contains(AreaProtection.DISPENSER) || toArea.protections.contains(AreaProtection.DISPENSER))
+        ) {
+            event.isCancelled = true
+        }
+    }
+
+    // A hopper (or dropper/hopper minecart feeding one) transferring an item between two
+    // inventories must not do so across a HOPPER-protected boundary, in either direction, while
+    // transfers within the same area keep working normally. Mirrors the dispenser check above.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onInventoryMoveItem(event: InventoryMoveItemEvent) {
+        val from = event.source.location ?: return
+        val to = event.destination.location ?: return
+        val fromArea = areaManager.areaAt(from)
+        val toArea = areaManager.areaAt(to)
+        if (fromArea !== toArea &&
+            (fromArea.protections.contains(AreaProtection.HOPPER) || toArea.protections.contains(AreaProtection.HOPPER))
+        ) {
+            event.isCancelled = true
+        }
+    }
+
+    // Same idea for a hopper (or hopper minecart) vacuuming a loose item entity off the ground -
+    // it must not reach across a HOPPER-protected boundary to do it either.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onInventoryPickupItem(event: InventoryPickupItemEvent) {
+        val invArea = areaManager.areaAt(event.inventory.location ?: return)
+        val itemArea = areaManager.areaAt(event.item.location)
+        if (invArea !== itemArea &&
+            (invArea.protections.contains(AreaProtection.HOPPER) || itemArea.protections.contains(AreaProtection.HOPPER))
         ) {
             event.isCancelled = true
         }
