@@ -17,6 +17,7 @@ import org.bukkit.event.block.BlockFromToEvent
 import org.bukkit.event.block.BlockPistonExtendEvent
 import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.block.BlockRedstoneEvent
 import org.bukkit.event.entity.AreaEffectCloudApplyEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
@@ -314,6 +315,23 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (!originArea.protections.contains(AreaProtection.OVERFLOW)) return
         event.blocks.removeIf { blockState ->
             areaManager.areaAt(blockState.location) !== originArea
+        }
+    }
+
+    // Redstone dust sitting in a REDSTONE-protected area freezes its current whenever any of its
+    // six neighbors belongs to a different area, so a signal originating outside that area can't
+    // propagate in through it (or vice versa). BlockRedstoneEvent is NOT Cancellable - influence it
+    // only via setNewCurrent, and never add ignoreCancelled to this handler.
+    @EventHandler(priority = EventPriority.LOW)
+    fun onBlockRedstone(event: BlockRedstoneEvent) {
+        val wireArea = areaManager.areaAt(event.block.location)
+        if (!wireArea.protections.contains(AreaProtection.REDSTONE)) return
+        val faces = arrayOf(BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)
+        val crossesBoundary = faces.any { face ->
+            areaManager.areaAt(event.block.getRelative(face).location) !== wireArea
+        }
+        if (crossesBoundary) {
+            event.newCurrent = event.oldCurrent
         }
     }
 }
