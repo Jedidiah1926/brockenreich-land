@@ -33,6 +33,7 @@ import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
 import org.bukkit.event.hanging.HangingBreakByEntityEvent
 import org.bukkit.event.hanging.HangingPlaceEvent
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent
 import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
 import org.bukkit.event.player.PlayerDropItemEvent
@@ -80,6 +81,17 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onInteractAtEntity(event: PlayerInteractAtEntityEvent) {
         if (event.hand == EquipmentSlot.OFF_HAND) return
+        if (denied(event.player, event.rightClicked.location, AreaPermission.INTERACTION)) {
+            event.isCancelled = true
+        }
+    }
+
+    // PlayerArmorStandManipulateEvent (equipping/unequipping an armor stand's item slots) is a
+    // subclass of PlayerInteractAtEntityEvent above but, like it, has its own separate handler
+    // list - registered explicitly here so taking gear off an armor stand is gated the same way,
+    // even if some code path fires this without the generic interact-at-entity event alongside it.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onArmorStandManipulate(event: PlayerArmorStandManipulateEvent) {
         if (denied(event.player, event.rightClicked.location, AreaPermission.INTERACTION)) {
             event.isCancelled = true
         }
