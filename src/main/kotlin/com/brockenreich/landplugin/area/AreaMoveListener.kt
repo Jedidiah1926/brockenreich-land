@@ -8,6 +8,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.vehicle.VehicleExitEvent
 import org.bukkit.event.vehicle.VehicleMoveEvent
+import org.bukkit.util.Vector
 
 class AreaMoveListener(private val areaManager: AreaManager) : Listener {
 
@@ -67,21 +68,26 @@ class AreaMoveListener(private val areaManager: AreaManager) : Listener {
         val denied = players.any { !fromArea.can(it, AreaPermission.BOAT_EXIT) } ||
             players.any { !toArea.can(it, AreaPermission.BOAT_ENTRANCE) }
         if (denied) {
+            // Zero the velocity too - paddling keeps pushing momentum into the boat each tick, and
+            // a teleport alone doesn't clear that, letting it creep through over several ticks.
+            event.vehicle.velocity = Vector(0.0, 0.0, 0.0)
             event.vehicle.teleport(from)
         }
     }
 
     // Closes a bypass: a boat parked straddling a boundary can sit there without ever completing
     // a block-crossing move (so onVehicleMove above never fires a denial), but dismounting still
-    // plants the player on foot wherever the boat currently is. Deny the dismount itself if the
-    // player couldn't walk into that spot on foot.
+    // plants the player on foot wherever the boat currently is. Only block the dismount itself
+    // when the player has neither walking `entrance` nor `boatEntrance` for that spot - if
+    // boatEntrance is what let them in, they must still be able to get out of the boat there.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onVehicleExit(event: VehicleExitEvent) {
         if (event.vehicle !is Boat) return
         val player = event.exited as? Player ?: return
         if (player.hasPermission("brockenreichland.area.bypass")) return
 
-        if (!areaManager.areaAt(event.vehicle.location).canEnter(player)) {
+        val area = areaManager.areaAt(event.vehicle.location)
+        if (!area.canEnter(player) && !area.can(player, AreaPermission.BOAT_ENTRANCE)) {
             event.isCancelled = true
         }
     }
