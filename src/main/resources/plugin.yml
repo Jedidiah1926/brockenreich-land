@@ -9,7 +9,6 @@ commands:
   area:
     description: Manage land areas and their entrance/exit permissions.
     usage: /<command> <region|world|list|info|modify> ...
-    permission: brockenreichland.area
 permissions:
   brockenreichland.area:
     description: Manage land areas

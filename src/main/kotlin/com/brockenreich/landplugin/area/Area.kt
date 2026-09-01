@@ -79,11 +79,16 @@ sealed class AreaTarget {
  * on top of that default (it never revokes what @everyone already allows).
  * ADMINISTRATION is a wildcard: holding it (via @everyone or a per-player grant)
  * satisfies every other permission check in this area too.
+ * `admins` is a separate concept from members/permissions: it's who may run
+ * `/area modify`/`/area info` for *this* area specifically without being a
+ * server OP - the "land owner" for this one piece of land, not an in-game
+ * access grant like member/permission are.
  */
 class Area(val target: AreaTarget, var world: String) {
     var min: Location? = null
     var max: Location? = null
     val members: MutableSet<UUID> = mutableSetOf()
+    val admins: MutableSet<UUID> = mutableSetOf()
     val permissions: MutableSet<AreaPermission> =
         AreaPermission.entries.filterTo(mutableSetOf()) { it != AreaPermission.ADMINISTRATION }
     val playerPermissions: MutableMap<UUID, MutableSet<AreaPermission>> = mutableMapOf()
@@ -103,6 +108,8 @@ class Area(val target: AreaTarget, var world: String) {
     }
 
     fun isMember(player: OfflinePlayer): Boolean = members.contains(player.uniqueId)
+
+    fun isAdmin(player: OfflinePlayer): Boolean = admins.contains(player.uniqueId)
 
     private fun granted(player: OfflinePlayer, permission: AreaPermission): Boolean =
         permissions.contains(permission) || (playerPermissions[player.uniqueId]?.contains(permission) ?: false)

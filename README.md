@@ -70,6 +70,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 - **구역(region)**: WorldEdit으로 선택한 직육면체 영역에 이름을 붙인 것.
 - **월드 기본 구역(world)**: 어떤 구역에도 속하지 않는, 월드의 나머지 모든 공간. `world:<월드이름>` 으로 지정.
 - **멤버(member)**: 해당 구역에서 모든 권한을 항상 허용받는 플레이어 목록.
+- **admin("땅 주인")**: 서버 OP가 아니어도, 그 구역 하나에 한해 `/area modify`/`/area info` 를 쓸 수 있는 플레이어 목록. member/권한과는 별개로, "이 명령을 쓸 수 있는가"에 대한 권한입니다. admin을 임명/해제하는 것 자체는 OP만 가능합니다 (admin이 스스로를 승격시키거나 다른 admin을 마음대로 못 늘리도록).
 - **`@everyone` 권한**: 멤버가 아닌 모든 플레이어에게 적용되는 기본 권한. 새 구역은 `administration` 을 제외한 모든 권한이 기본 허용 상태로 시작합니다.
 - **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능 — 합집합 방식, 뺏는 방향으로는 동작하지 않음).
 
@@ -123,10 +124,15 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area info <region:이름|world:월드이름>
 /area modify <target> member add <닉네임>
 /area modify <target> member remove <닉네임>
+/area modify <target> admin add <닉네임>       # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
+/area modify <target> admin remove <닉네임>    # OP 전용
 /area modify <target> role permission @everyone <add|remove> <권한>
 /area modify <target> role permission <닉네임> <add|remove> <권한>
 /area modify <target> protection <add|remove> <보호>
 ```
+
+`region`/`world` 생성·삭제와 `list`, admin 임명/해제는 OP만 가능합니다. `modify`(member/role/protection)와 `info`는
+OP 이거나, 그 구역의 admin으로 등록된 플레이어면 자기 구역에 한해 사용할 수 있습니다.
 
 역할(`@everyone`)은 항상 `@` 접두사로 지정하고, 특정 유저는 접두사 없이 닉네임을 그대로 씁니다.
 

@@ -81,6 +81,9 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             area.members.addAll(
                 section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
             )
+            area.admins.addAll(
+                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+            )
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
@@ -93,6 +96,9 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             val area = worldArea(key)
             area.members.addAll(
                 section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+            )
+            area.admins.addAll(
+                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
             )
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
@@ -132,6 +138,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
                 yaml.set("$base.max.z", it.z)
             }
             yaml.set("$base.members", area.members.map { it.toString() })
+            yaml.set("$base.admins", area.admins.map { it.toString() })
             yaml.set("$base.permissions", area.permissions.map { it.name })
             area.playerPermissions.forEach { (uuid, perms) ->
                 yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
@@ -142,6 +149,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
         worldAreas.forEach { (key, area) ->
             val base = "worlds.$key"
             yaml.set("$base.members", area.members.map { it.toString() })
+            yaml.set("$base.admins", area.admins.map { it.toString() })
             yaml.set("$base.permissions", area.permissions.map { it.name })
             area.playerPermissions.forEach { (uuid, perms) ->
                 yaml.set("$base.playerPermissions.$uuid", perms.map { it.name })
