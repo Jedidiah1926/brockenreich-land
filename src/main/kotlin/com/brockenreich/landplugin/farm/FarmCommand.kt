@@ -12,7 +12,7 @@ class FarmCommand(private val farmManager: FarmManager, private val farmItems: F
         when (args.getOrNull(0)?.lowercase()) {
             "animate" -> handleAnimate(sender)
             "time" -> handleTime(sender, args)
-            else -> sender.sendMessage("§c사용법: /farm animate 또는 /farm time <test|default>")
+            else -> sender.sendMessage("§c사용법: /farm animate 또는 /farm time <test [초]|default>")
         }
         return true
     }
@@ -45,14 +45,21 @@ class FarmCommand(private val farmManager: FarmManager, private val farmItems: F
         }
         when (args.getOrNull(1)?.lowercase()) {
             "test" -> {
-                farmManager.setTestSeconds(10)
-                sender.sendMessage("§a테스트 모드: 지금부터 심는 모든 작물의 성장 시간이 10초로 적용됩니다.")
+                val requested = args.getOrNull(2)
+                val seconds = requested?.toLongOrNull()
+                if (requested != null && (seconds == null || seconds <= 0)) {
+                    sender.sendMessage("§c초는 1 이상의 정수로 입력해주세요.")
+                    return
+                }
+                val actual = seconds ?: 10L
+                farmManager.setTestSeconds(actual)
+                sender.sendMessage("§a테스트 모드: 지금부터 심는 모든 작물의 성장 시간이 ${actual}초로 적용됩니다.")
             }
             "default" -> {
                 farmManager.setTestSeconds(null)
                 sender.sendMessage("§a설정된 기본 성장 시간으로 되돌렸습니다.")
             }
-            else -> sender.sendMessage("§c사용법: /farm time <test|default>")
+            else -> sender.sendMessage("§c사용법: /farm time <test [초]|default>")
         }
     }
 

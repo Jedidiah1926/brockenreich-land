@@ -11,7 +11,7 @@ commands:
     usage: /<command> <region|world|list|info|modify> ...
   farm:
     description: Enchant a held farm item so it can be planted with fixed-time growth.
-    usage: /<command> <animate|time test|time default>
+    usage: /<command> <animate|time test [초]|time default>
 permissions:
   brockenreichland.area:
     description: Manage land areas

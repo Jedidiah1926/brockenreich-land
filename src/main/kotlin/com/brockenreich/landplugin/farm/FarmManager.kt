@@ -28,7 +28,7 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     private data class Key(val world: String, val x: Int, val y: Int, val z: Int)
 
     /** [appliedAge] is the highest age this entry has already written to its block, to avoid redundant block updates. */
-    private data class Entry(val type: FarmCropType, val plantedAt: Long, val dueAt: Long, var appliedAge: Int)
+    private data class Entry(val type: FarmCropType, var plantedAt: Long, var dueAt: Long, var appliedAge: Int)
 
     private val file = File(dataFolder, "farm.yml")
     private val entries = mutableMapOf<Key, Entry>()
@@ -54,8 +54,10 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
 
     fun isTestMode(): Boolean = testDurationMillis != null
 
+    private fun durationFor(type: FarmCropType): Long? = testDurationMillis ?: growthMillis[type]
+
     fun plant(block: Block, type: FarmCropType) {
-        val duration = testDurationMillis ?: growthMillis[type] ?: return
+        val duration = durationFor(type) ?: return
         val now = System.currentTimeMillis()
         entries[keyOf(block)] = Entry(type, now, now + duration, appliedAge = 0)
         save()
@@ -102,10 +104,20 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
                 // this only ever fires for the structure-growth types.
                 if (isStillGrowing(block, entry.type)) {
                     failGrowth(block)
+                    // Don't abandon it - whatever's blocking it might get cleared later, so
+                    // schedule another attempt instead of leaving it stuck forever untracked.
+                    val duration = durationFor(entry.type)
+                    if (duration == null) {
+                        iterator.remove()
+                    } else {
+                        entry.plantedAt = now
+                        entry.dueAt = now + duration
+                        entry.appliedAge = 0
+                    }
                 } else {
                     celebrateGrowth(block)
+                    iterator.remove()
                 }
-                iterator.remove()
                 changed = true
                 continue
             }
