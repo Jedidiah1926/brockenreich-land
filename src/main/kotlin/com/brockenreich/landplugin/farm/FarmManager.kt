@@ -95,7 +95,16 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
 
             if (entry.dueAt <= now) {
                 forceFullyGrown(block, entry.type)
-                celebrateGrowth(block)
+                // A structure-growth crop (sapling/mushroom family) can still fail after 40
+                // bonemeal attempts if it's genuinely obstructed (not enough open space for a
+                // tree, or - for mushrooms - any block at all in the way, not just logs); the
+                // simple Ageable crops and melon/pumpkin's direct swap always succeed here, so
+                // this only ever fires for the structure-growth types.
+                if (isStillGrowing(block, entry.type)) {
+                    failGrowth(block)
+                } else {
+                    celebrateGrowth(block)
+                }
                 iterator.remove()
                 changed = true
                 continue
@@ -125,6 +134,10 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
 
     private fun celebrateGrowth(block: Block) {
         block.world.spawnParticle(Particle.HAPPY_VILLAGER, block.location.add(0.5, 0.5, 0.5), 20, 0.3, 0.4, 0.3, 0.0)
+    }
+
+    private fun failGrowth(block: Block) {
+        block.world.spawnParticle(Particle.SMOKE, block.location.add(0.5, 0.5, 0.5), 20, 0.3, 0.4, 0.3, 0.02)
     }
 
     private fun isStillGrowing(block: Block, type: FarmCropType): Boolean = when (type) {
