@@ -8,6 +8,8 @@ import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Ageable
 import org.bukkit.configuration.file.FileConfiguration
 import org.bukkit.configuration.file.YamlConfiguration
+import org.bukkit.entity.Display
+import org.bukkit.entity.TextDisplay
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitRunnable
 import java.io.File
@@ -33,6 +35,9 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     private val file = File(dataFolder, "farm.yml")
     private val entries = mutableMapOf<Key, Entry>()
     private val growthMillis = mutableMapOf<FarmCropType, Long>()
+
+    /** Live countdown holograms toggled on via shift-right-click - purely cosmetic, not persisted across restarts. */
+    private val displays = mutableMapOf<Key, TextDisplay>()
 
     /** Set by /farm time test|default - a non-null value overrides every crop's configured duration for new plantings. */
     private var testDurationMillis: Long? = null
@@ -63,10 +68,32 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         save()
     }
 
-    /** Seconds left until [block] finishes growing, or null if it isn't a tracked planting. */
-    fun remainingSeconds(block: Block): Long? {
-        val entry = entries[keyOf(block)] ?: return null
-        return ((entry.dueAt - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+    /**
+     * Shift-right-click toggle: spawns a floating name-tag-style hologram 1.5 blocks above
+     * [block] showing its live remaining time (updated every tick() second), or removes it if one
+     * is already showing there. Returns false (nothing done) if [block] isn't a tracked planting.
+     */
+    fun toggleCountdownDisplay(block: Block): Boolean {
+        val key = keyOf(block)
+        val entry = entries[key] ?: return false
+
+        val existing = displays.remove(key)
+        if (existing != null) {
+            existing.remove()
+            return true
+        }
+
+        val display = block.world.spawn(block.location.add(0.5, 1.5, 0.5), TextDisplay::class.java)
+        display.billboard = Display.Billboard.CENTER
+        display.isPersistent = false
+        display.text = formatRemaining(entry, System.currentTimeMillis())
+        displays[key] = display
+        return true
+    }
+
+    private fun formatRemaining(entry: Entry, now: Long): String {
+        val remaining = ((entry.dueAt - now) / 1000).coerceAtLeast(0)
+        return "§f${remaining / 60}분 ${remaining % 60}초"
     }
 
     fun start() {
@@ -87,6 +114,7 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
             val world = Bukkit.getWorld(key.world)
             if (world == null) {
                 iterator.remove()
+                displays.remove(key)?.remove()
                 changed = true
                 continue
             }
@@ -110,9 +138,12 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
                     celebrateGrowth(block)
                 }
                 iterator.remove()
+                displays.remove(key)?.remove()
                 changed = true
                 continue
             }
+
+            displays[key]?.text = formatRemaining(entry, now)
 
             if (advanceProportionally(block, entry, now)) {
                 changed = true

@@ -1,7 +1,5 @@
 package com.brockenreich.landplugin.farm
 
-import net.kyori.adventure.text.Component
-import net.kyori.adventure.title.Title
 import org.bukkit.GameMode
 import org.bukkit.Material
 import org.bukkit.Sound
@@ -120,20 +118,19 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         }
     }
 
-    // Shift-right-clicking a still-growing farm crop shows the remaining fixed grow time as a
-    // title, instead of doing whatever that right click would normally do to the crop.
+    // Shift-right-clicking a still-growing farm crop toggles a floating, name-tag-style hologram
+    // 1.5 blocks above it showing the live remaining grow time (ticking down in real time) -
+    // right-clicking it again while sneaking removes it. Does nothing for a block that isn't a
+    // tracked planting, letting whatever right click would normally do proceed instead.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onCheckGrowth(event: PlayerInteractEvent) {
         if (event.action != Action.RIGHT_CLICK_BLOCK) return
         if (event.hand == EquipmentSlot.OFF_HAND) return
         if (!event.player.isSneaking) return
         val block = event.clickedBlock ?: return
-        val remaining = farmManager.remainingSeconds(block) ?: return
-
-        event.isCancelled = true
-        val minutes = remaining / 60
-        val seconds = remaining % 60
-        event.player.showTitle(Title.title(Component.text("${minutes}분 ${seconds}초"), Component.empty()))
+        if (farmManager.toggleCountdownDisplay(block)) {
+            event.isCancelled = true
+        }
     }
 
     // Sugar cane normally refuses to even be placed away from water. An animated sugar cane item
