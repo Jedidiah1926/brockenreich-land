@@ -123,10 +123,10 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area world delete <월드이름>                           # world:<월드이름> 을 기본값으로 초기화
 /area list
 /area info <region:이름|world:월드이름>
-/area modify <target> member add <닉네임>
-/area modify <target> member remove <닉네임>
-/area modify <target> admin add <닉네임>              # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
-/area modify <target> admin remove <닉네임>           # OP 전용
+/area modify <target> role member add <닉네임>
+/area modify <target> role member remove <닉네임>
+/area modify <target> role admin add <닉네임>          # OP 전용 - 이 구역만 관리할 수 있는 admin 임명
+/area modify <target> role admin remove <닉네임>       # OP 전용
 /area modify region:<이름> parent add <부모구역이름>    # OP 전용 - 모든 부모의 admin이면 자동 admin
 /area modify region:<이름> parent remove <부모구역이름> # OP 전용
 /area modify <target> role permission @everyone <add|remove> <권한>
@@ -134,8 +134,12 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area modify <target> protection <add|remove> <보호>
 ```
 
-`region`/`world` 생성·삭제와 `list`, admin 임명/해제, parent 설정은 OP만 가능합니다. `modify`(member/role/protection)와
-`info`는 OP 이거나, 그 구역의 admin으로 등록된(또는 parent를 통해 상속받은) 플레이어면 자기 구역에 한해 사용할 수 있습니다.
+`member`/`admin`/`permission`은 전부 `role` 아래의 하위 종류입니다 — member도 admin도 결국 "역할"이라는 개념이고,
+그 역할에 누구를 넣을지(member/admin) 또는 어떤 권한을 부여할지(permission)의 차이일 뿐입니다.
+
+`region`/`world` 생성·삭제와 `list`, admin 임명/해제, parent 설정은 OP만 가능합니다. `modify`(role member/permission,
+protection)와 `info`는 OP 이거나, 그 구역의 admin으로 등록된(또는 parent를 통해 상속받은) 플레이어면 자기 구역에
+한해 사용할 수 있습니다.
 
 parent 예시:
 ```
@@ -150,7 +154,7 @@ parent 예시:
 예시:
 ```
 /area region create green
-/area modify region:green member add Steve
+/area modify region:green role member add Steve
 /area world create world
 /area modify world:world role permission @everyone remove entrance
 /area modify world:world role permission Alex add entrance

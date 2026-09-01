@@ -51,10 +51,10 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e/area world delete <월드이름> §7- world:<월드이름> 을 기본값으로 초기화")
         sender.sendMessage("§e/area list")
         sender.sendMessage("§e/area info <region:이름|world:월드이름>")
-        sender.sendMessage("§e/area modify <target> member add <닉네임>")
-        sender.sendMessage("§e/area modify <target> member remove <닉네임>")
-        sender.sendMessage("§e/area modify <target> admin add <닉네임> §7- OP 전용, 이 구역만 관리할 수 있는 권한 부여")
-        sender.sendMessage("§e/area modify <target> admin remove <닉네임> §7- OP 전용")
+        sender.sendMessage("§e/area modify <target> role member add <닉네임>")
+        sender.sendMessage("§e/area modify <target> role member remove <닉네임>")
+        sender.sendMessage("§e/area modify <target> role admin add <닉네임> §7- OP 전용, 이 구역만 관리할 수 있는 권한 부여")
+        sender.sendMessage("§e/area modify <target> role admin remove <닉네임> §7- OP 전용")
         sender.sendMessage("§e/area modify region:<이름> parent add <부모구역이름> §7- OP 전용, 모든 부모의 admin이면 이 구역도 자동 admin")
         sender.sendMessage("§e/area modify region:<이름> parent remove <부모구역이름> §7- OP 전용")
         sender.sendMessage("§e/area modify <target> role permission @everyone <add|remove> <권한>")
@@ -263,18 +263,42 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         if (args.size < 3) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} <member|admin|parent|role|protection> ...")
+            sender.sendMessage("§c사용법: /area modify ${args[1]} <role|parent|protection> ...")
             return
         }
 
         val category = args[2].lowercase()
 
-        // admin add/remove and parent add/remove are OP-only: both affect who can manage this area
-        // at all (parent inherits admin status), so an area admin can't escalate themselves,
-        // grant others admin, or rewire inheritance to pick up extra admin rights.
-        if (category == "admin" || category == "parent") {
-            if (!requireOp(sender)) return
-            if (category == "admin") handleModifyAdmin(sender, area, args) else handleModifyParent(sender, area, args)
+        // parent add/remove is OP-only: it rewires inherited admin status, so an area admin can't
+        // grant themselves or others extra admin rights through it.
+        if (category == "parent") {
+            if (requireOp(sender)) handleModifyParent(sender, area, args)
+            return
+        }
+
+        if (category == "role") {
+            if (args.size < 4) {
+                sender.sendMessage("§c사용법: /area modify ${args[1]} role <member|admin|permission> ...")
+                return
+            }
+            val roleKind = args[3].lowercase()
+
+            // The admin role is OP-only for the same reason as parent: an area admin can't
+            // escalate themselves or grant admin to others.
+            if (roleKind == "admin") {
+                if (requireOp(sender)) handleModifyRoleAdmin(sender, area, args)
+                return
+            }
+
+            if (!canManage(sender, area)) {
+                sender.sendMessage("§c이 구역을 수정할 권한이 없습니다.")
+                return
+            }
+            when (roleKind) {
+                "member" -> handleModifyRoleMember(sender, area, args)
+                "permission" -> handleModifyRolePermission(sender, area, args)
+                else -> sender.sendMessage("§c'member', 'admin' 또는 'permission' 이어야 합니다.")
+            }
             return
         }
 
@@ -284,20 +308,18 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         when (category) {
-            "member" -> handleModifyMember(sender, area, args)
-            "role" -> handleModifyRole(sender, area, args)
             "protection" -> handleModifyProtection(sender, area, args)
-            else -> sender.sendMessage("§c'member', 'admin', 'parent', 'role' 또는 'protection' 이어야 합니다.")
+            else -> sender.sendMessage("§c'role', 'parent' 또는 'protection' 이어야 합니다.")
         }
     }
 
-    private fun handleModifyAdmin(sender: CommandSender, area: Area, args: Array<out String>) {
-        if (args.size < 5) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} admin <add|remove> <닉네임>")
+    private fun handleModifyRoleAdmin(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 6) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} role admin <add|remove> <닉네임>")
             return
         }
-        val action = args[3].lowercase()
-        val nickname = args[4]
+        val action = args[4].lowercase()
+        val nickname = args[5]
         @Suppress("DEPRECATION")
         val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
 
@@ -358,13 +380,13 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         areaManager.save()
     }
 
-    private fun handleModifyMember(sender: CommandSender, area: Area, args: Array<out String>) {
-        if (args.size < 5) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} member <add|remove> <닉네임>")
+    private fun handleModifyRoleMember(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 6) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} role member <add|remove> <닉네임>")
             return
         }
-        val action = args[3].lowercase()
-        val nickname = args[4]
+        val action = args[4].lowercase()
+        val nickname = args[5]
         @Suppress("DEPRECATION")
         val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
 
@@ -385,8 +407,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         areaManager.save()
     }
 
-    private fun handleModifyRole(sender: CommandSender, area: Area, args: Array<out String>) {
-        if (args.size < 7 || args[3].lowercase() != "permission") {
+    private fun handleModifyRolePermission(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (args.size < 7) {
             sender.sendMessage("§c사용법: /area modify ${args[1]} role permission <@everyone|닉네임> <add|remove> <권한>")
             return
         }
@@ -485,37 +507,39 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 } else {
                     emptyList()
                 }
-                "modify" -> listOf("member", "admin", "parent", "role", "protection").filter { it.startsWith(args[2].lowercase()) }
+                "modify" -> listOf("role", "parent", "protection").filter { it.startsWith(args[2].lowercase()) }
                 else -> emptyList()
             }
             4 -> if (args[0].lowercase() == "modify") {
                 when (args[2].lowercase()) {
-                    "member" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
-                    "admin" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
+                    "role" -> listOf("member", "admin", "permission").filter { it.startsWith(args[3].lowercase()) }
                     "parent" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
-                    "role" -> listOf("permission").filter { it.startsWith(args[3].lowercase()) }
                     "protection" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     else -> emptyList()
                 }
             } else {
                 emptyList()
             }
-            5 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
+            5 -> if (args[0].lowercase() != "modify") {
+                emptyList()
+            } else if (args[2].lowercase() == "role" && (args[3].lowercase() == "member" || args[3].lowercase() == "admin")) {
+                listOf("add", "remove").filter { it.startsWith(args[4].lowercase()) }
+            } else if (args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
                 (listOf("@everyone") + Bukkit.getOnlinePlayers().map { it.name })
                     .filter { it.startsWith(args[4], ignoreCase = true) }
-            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "protection" &&
-                (args[3].lowercase() == "add" || args[3].lowercase() == "remove")
-            ) {
+            } else if (args[2].lowercase() == "protection" && (args[3].lowercase() == "add" || args[3].lowercase() == "remove")) {
                 AreaProtection.entries.map { it.label }.filter { it.startsWith(args[4], ignoreCase = true) }
-            } else if (args[0].lowercase() == "modify" && args[2].lowercase() == "parent" &&
-                (args[3].lowercase() == "add" || args[3].lowercase() == "remove")
-            ) {
+            } else if (args[2].lowercase() == "parent" && (args[3].lowercase() == "add" || args[3].lowercase() == "remove")) {
                 areaManager.regions().map { it.target.key().removePrefix("region:") }
                     .filter { it.startsWith(args[4], ignoreCase = true) }
             } else {
                 emptyList()
             }
-            6 -> if (args[0].lowercase() == "modify" && args[2].lowercase() == "role" && args[3].lowercase() == "permission") {
+            6 -> if (args[0].lowercase() != "modify" || args[2].lowercase() != "role") {
+                emptyList()
+            } else if (args[3].lowercase() == "member" || args[3].lowercase() == "admin") {
+                Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[5], ignoreCase = true) }
+            } else if (args[3].lowercase() == "permission") {
                 listOf("add", "remove").filter { it.startsWith(args[5].lowercase()) }
             } else {
                 emptyList()
