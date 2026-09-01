@@ -39,10 +39,12 @@ import org.bukkit.event.player.PlayerArmorStandManipulateEvent
 import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
 import org.bukkit.event.player.PlayerDropItemEvent
+import org.bukkit.event.player.PlayerFishEvent
 import org.bukkit.event.player.PlayerInteractAtEntityEvent
 import org.bukkit.event.block.SpongeAbsorbEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerLeashEntityEvent
 import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
 
@@ -187,6 +189,28 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         val attacker = event.damager as? Player ?: return
         val permission = if (event.entity is Player) AreaPermission.ATTACK_PLAYER else AreaPermission.ATTACK_ENTITY
         if (denied(attacker, attacker.location, permission) || denied(attacker, event.entity.location, permission)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Hooking an entity/player with a fishing rod and reeling it in is checked at both ends, same
+    // as attackEntity/attackPlayer above - the hook can travel far enough to reach across a
+    // boundary even while the angler stays put on one side of it.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onFishPullEntity(event: PlayerFishEvent) {
+        if (event.state != PlayerFishEvent.State.CAUGHT_ENTITY) return
+        val caught = event.caught ?: return
+        val player = event.player
+        if (denied(player, player.location, AreaPermission.FISH_PULL) || denied(player, caught.location, AreaPermission.FISH_PULL)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Leashing is checked at the leashed entity's own location, matching interaction/attack-style
+    // target-location checks elsewhere.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onLeash(event: PlayerLeashEntityEvent) {
+        if (denied(event.player, event.entity.location, AreaPermission.LEASH)) {
             event.isCancelled = true
         }
     }

@@ -100,6 +100,8 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 | `attackPlayer` | 플레이어 공격. `attackEntity`와 동일하게 공격자/피격자 양쪽 위치를 검사합니다 |
 | `bucketEmpty` | 양동이 비우기 |
 | `bucketFill` | 양동이 채우기 |
+| `fishPull` | 낚싯대로 엔티티/플레이어를 낚아서 당기기. 낚는 사람 위치와 낚인 대상 위치 둘 다 검사합니다 |
+| `leash` | 목줄(끈)로 엔티티 묶기 |
 | `administration` | 이 구역 안에서 다른 모든 권한 검사를 무시하는 와일드카드 권한 (기본값: 비허용) |
 
 ### 보호(Protection) 목록

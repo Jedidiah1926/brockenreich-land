@@ -22,6 +22,8 @@ enum class AreaPermission(val label: String) {
     ATTACK_PLAYER("attackPlayer"),
     BUCKET_EMPTY("bucketEmpty"),
     BUCKET_FILL("bucketFill"),
+    FISH_PULL("fishPull"),
+    LEASH("leash"),
     ADMINISTRATION("administration");
 
     companion object {
