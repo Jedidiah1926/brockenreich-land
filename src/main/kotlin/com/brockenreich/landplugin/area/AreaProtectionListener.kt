@@ -5,6 +5,7 @@ import org.bukkit.Material
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Directional
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -14,7 +15,10 @@ import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockBurnEvent
 import org.bukkit.event.block.BlockDispenseEvent
+import org.bukkit.event.block.BlockFadeEvent
 import org.bukkit.event.block.BlockFertilizeEvent
+import org.bukkit.event.block.BlockFormEvent
+import org.bukkit.event.block.BlockGrowEvent
 import org.bukkit.event.block.BlockIgniteEvent
 import org.bukkit.event.block.BlockExplodeEvent
 import org.bukkit.event.block.BlockFromToEvent
@@ -22,7 +26,9 @@ import org.bukkit.event.block.BlockPistonExtendEvent
 import org.bukkit.event.block.BlockPistonRetractEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.block.BlockRedstoneEvent
+import org.bukkit.event.block.BlockSpreadEvent
 import org.bukkit.event.entity.AreaEffectCloudApplyEvent
+import org.bukkit.event.entity.EntityChangeBlockEvent
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
@@ -183,14 +189,22 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     // swing hitting nearby entities) can land on someone standing just outside the boundary
     // while the attacker stays inside, which `denied(attacker, event.entity.location, ...)`
     // alone wouldn't catch since that only consults the permissions of the area the *victim*
-    // is standing in.
+    // is standing in. The damager is resolved through a projectile to its shooter too - an arrow
+    // (or trident, snowball, ...) fired from outside a boundary that lands a hit inside it is
+    // still the shooter's attack, not exempt just because event.damager is the Arrow entity.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onEntityDamageByEntity(event: EntityDamageByEntityEvent) {
-        val attacker = event.damager as? Player ?: return
+        val attacker = resolveAttackingPlayer(event.damager) ?: return
         val permission = if (event.entity is Player) AreaPermission.ATTACK_PLAYER else AreaPermission.ATTACK_ENTITY
         if (denied(attacker, attacker.location, permission) || denied(attacker, event.entity.location, permission)) {
             event.isCancelled = true
         }
+    }
+
+    private fun resolveAttackingPlayer(damager: Entity): Player? = when (damager) {
+        is Player -> damager
+        is Projectile -> damager.shooter as? Player
+        else -> null
     }
 
     // Hooking an entity/player with a fishing rod and reeling it in is checked at both ends, same
@@ -501,6 +515,79 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onBlockBurn(event: BlockBurnEvent) {
         if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.FIRE_SPREAD)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Any entity (not just players, who are separately gated by the pickupItem permission above)
+    // picking up a dropped item while standing in an ENTITY_PICKUP_ITEM-protected area is blocked -
+    // covers mobs like foxes/villagers scooping up drops inside a protected area.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onEntityPickupItemProtection(event: EntityPickupItemEvent) {
+        if (areaManager.areaAt(event.item.location).protections.contains(AreaProtection.ENTITY_PICKUP_ITEM)) {
+            event.isCancelled = true
+        }
+    }
+
+    // A general "safe zone" toggle: blocks non-attack, non-explosion damage (fall, fire, drowning,
+    // starvation, void, ...) to anything standing inside a DAMAGE-protected area. Independent of
+    // attackEntity/attackPlayer (player-caused, a separate Cancellable subclass this never sees)
+    // and explosionDamage (explosion-caused specifically, likewise a separate handler).
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onDamageProtection(event: EntityDamageEvent) {
+        if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.DAMAGE)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Any entity-caused block change - a sheep eating grass, an enderman placing/picking up a
+    // block, a falling sand/gravel/anvil block landing and turning back into a solid block, a
+    // wither/ravager destroying blocks, etc. - is blocked wherever it would land inside an
+    // ENTITY_CHANGE_BLOCK-protected area (this is also how a falling block landing is caught, so
+    // "protect this area from stuff dropped on it" works too).
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onEntityChangeBlock(event: EntityChangeBlockEvent) {
+        if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.ENTITY_CHANGE_BLOCK)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Grass/mycelium/vines/mushrooms/sculk/coral etc. spreading into an adjacent block - checked
+    // at the spreading source, same pattern as overflow/sponge: only stops it from reaching a
+    // different area than the one it started in.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockSpread(event: BlockSpreadEvent) {
+        val sourceArea = areaManager.areaAt(event.source.location)
+        if (!sourceArea.protections.contains(AreaProtection.BLOCK_SPREAD)) return
+        if (areaManager.areaAt(event.block.location) !== sourceArea) {
+            event.isCancelled = true
+        }
+    }
+
+    // Ice/snow melting, coral dying, and any other natural fading inside a FADE-protected area
+    // (farmland drying specifically is already prevented server-wide regardless of area - see
+    // FarmListener - so this only ever matters for the other cases BlockFadeEvent covers).
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockFade(event: BlockFadeEvent) {
+        if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.FADE)) {
+            event.isCancelled = true
+        }
+    }
+
+    // Ice/snow/concrete forming naturally inside a FORM-protected area.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockForm(event: BlockFormEvent) {
+        if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.FORM)) {
+            event.isCancelled = true
+        }
+    }
+
+    // A crop naturally advancing a growth stage inside a GROWTH-protected area. This also applies
+    // to the farm system's forced growth (it simulates real bonemeal, which fires this same
+    // event), so a GROWTH-protected area blocks farm crops from completing there too.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockGrow(event: BlockGrowEvent) {
+        if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.GROWTH)) {
             event.isCancelled = true
         }
     }
