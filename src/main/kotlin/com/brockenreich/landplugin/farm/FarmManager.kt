@@ -96,6 +96,21 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         return "§f${remaining / 60}분 ${remaining % 60}초"
     }
 
+    /**
+     * Stops tracking [block] entirely - its growth timer and any countdown hologram showing over
+     * it. Call this whenever a block that might be a tracked planting is destroyed some other way
+     * (broken, exploded, etc.) before its timer finished, so a removed crop doesn't keep counting
+     * down toward growing something that's no longer there, and doesn't leave a hologram floating
+     * in mid-air with nothing under it. A no-op if [block] wasn't tracked.
+     */
+    fun cancelTracking(block: Block) {
+        val key = keyOf(block)
+        if (entries.remove(key) != null) {
+            save()
+        }
+        displays.remove(key)?.remove()
+    }
+
     fun start() {
         object : BukkitRunnable() {
             override fun run() = tick()

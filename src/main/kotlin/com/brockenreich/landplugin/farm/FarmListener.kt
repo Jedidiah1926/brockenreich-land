@@ -81,6 +81,15 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         return null
     }
 
+    // Breaking a still-growing tracked crop before its timer finishes must stop that timer (and
+    // remove its countdown hologram, if one was toggled on) - otherwise it keeps counting down
+    // toward growing a block that's no longer there, and a hologram is left floating with nothing
+    // under it. Cheap no-op for every other block break, so this isn't scoped to any one material.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBreakTrackedCrop(event: BlockBreakEvent) {
+        farmManager.cancelTracking(event.block)
+    }
+
     // Farmland mined by a player drops itself (not vanilla's dirt) so it can be replanted
     // directly without a hoe.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
