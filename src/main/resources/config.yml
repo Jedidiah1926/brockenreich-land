@@ -1,0 +1,16 @@
+# /farm animate 로 인챈트해서 심은 작물이 완전히 다 자랄 때까지 걸리는 고정 시간(분).
+# randomTickSpeed가 0이라 자연적으로는 자라지 않으므로, 여기 적힌 시간이 지나면 강제로 다 자란 상태가 됩니다.
+# 값을 바꾼 뒤에는 서버를 재시작해야 적용됩니다. 선인장/사탕수수/죽순은 키 자람 방식이라 이 자동 성장 대상이 아닙니다.
+farm:
+  growthMinutes:
+    sweetBerry: 15
+    potato: 20
+    carrot: 20
+    beetrootSeeds: 15
+    melonSeeds: 30
+    pumpkinSeeds: 30
+    wheatSeeds: 20
+    netherWart: 25
+    mushroom: 40
+    sapling: 30
+    cocoa: 20

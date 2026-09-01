@@ -6,11 +6,18 @@ import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
 import com.brockenreich.landplugin.area.AreaPlayerGuard
 import com.brockenreich.landplugin.area.AreaProtectionListener
+import com.brockenreich.landplugin.farm.FarmCommand
+import com.brockenreich.landplugin.farm.FarmItems
+import com.brockenreich.landplugin.farm.FarmListener
+import com.brockenreich.landplugin.farm.FarmManager
 import org.bukkit.plugin.java.JavaPlugin
 
 class LandPlugin : JavaPlugin() {
 
     lateinit var areaManager: AreaManager
+        private set
+
+    lateinit var farmManager: FarmManager
         private set
 
     override fun onEnable() {
@@ -28,12 +35,29 @@ class LandPlugin : JavaPlugin() {
         AreaBoatGuard(this, areaManager).start()
         AreaPlayerGuard(this, areaManager).start()
 
+        saveDefaultConfig()
+        farmManager = FarmManager(this, dataFolder)
+        farmManager.loadConfig(config)
+        farmManager.load()
+        farmManager.start()
+
+        val farmItems = FarmItems(this)
+        getCommand("farm")?.let { command ->
+            val executor = FarmCommand(farmItems)
+            command.setExecutor(executor)
+            command.tabCompleter = executor
+        }
+        server.pluginManager.registerEvents(FarmListener(farmManager, farmItems), this)
+
         logger.info("BrockenreichLand enabled.")
     }
 
     override fun onDisable() {
         if (::areaManager.isInitialized) {
             areaManager.save()
+        }
+        if (::farmManager.isInitialized) {
+            farmManager.save()
         }
         logger.info("BrockenreichLand disabled.")
     }
