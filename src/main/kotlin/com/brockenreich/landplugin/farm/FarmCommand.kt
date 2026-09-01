@@ -34,7 +34,7 @@ class FarmCommand(private val farmManager: FarmManager, private val farmItems: F
             return
         }
 
-        farmItems.animate(item, type.displayName)
+        farmItems.animate(item)
         sender.sendMessage("§a${type.displayName} 아이템을 인챈트했습니다.")
     }
 
