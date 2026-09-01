@@ -1,9 +1,11 @@
 # /farm animate 로 인챈트해서 심은 작물이 완전히 다 자랄 때까지 걸리는 고정 시간(분).
 # randomTickSpeed가 0이라 자연적으로는 자라지 않으므로, 여기 적힌 시간이 지나면 강제로 다 자란 상태가 됩니다.
-# 값을 바꾼 뒤에는 서버를 재시작해야 적용됩니다. 선인장/사탕수수/죽순은 키 자람 방식이라 이 자동 성장 대상이 아닙니다.
+# 값을 바꾼 뒤에는 서버를 재시작해야 적용됩니다.
 # sapling: 정글/짙은 참나무를 제외한 나무 묘목(오크/가문비/자작/아카시아/벚나무/맹그로브 순묘) + 진달래.
 # jungleSapling: 정글 나무 묘목을 혼자 심었을 때. jungleBigTree/darkOakSapling: 4그루를 2x2로 심어 큰 나무가 되는 경우.
 # mushroom: 빨간/갈색 버섯 + 진홍빛/뒤틀린 균 (네더).
+# cactus/sugarCane/bamboo: 완전히 다 자라는 게 아니라 이 시간마다 한 칸씩 위로 자랍니다 (공용 자원 - 밑동은 OP만 부술 수 있고,
+# 뼛가루로 수동으로 키우는 것도 OP만 가능합니다).
 farm:
   growthMinutes:
     sweetBerry: 1
@@ -20,3 +22,6 @@ farm:
     jungleBigTree: 10080
     darkOakSapling: 480
     cocoa: 60
+    cactus: 60
+    sugarCane: 180
+    bamboo: 120

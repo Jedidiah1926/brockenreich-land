@@ -12,6 +12,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockFadeEvent
+import org.bukkit.event.block.BlockFertilizeEvent
 import org.bukkit.event.block.BlockPhysicsEvent
 import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.EntityChangeBlockEvent
@@ -93,6 +94,16 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
     fun onBreakTrackedCrop(event: BlockBreakEvent) {
         val block = event.block
         val type = farmManager.typeOf(block)
+
+        // Cactus/sugar cane/bamboo bases are shared community resources, not any one player's -
+        // only an OP may remove the base segment itself (which would kill the whole plant instead
+        // of just harvesting from it). Everyone can still break the segments above it normally;
+        // those aren't the tracked base, so typeOf returns null for them and this doesn't apply.
+        if (type in FarmManager.HEIGHT_TYPES && !event.player.isOp) {
+            event.isCancelled = true
+            return
+        }
+
         if (type == FarmCropType.JUNGLE_BIG_TREE || type == FarmCropType.DARK_OAK_SAPLING) {
             findCompleted2x2(block, block.type)?.forEach { corner ->
                 if (corner != block) {
@@ -102,6 +113,18 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
             }
         }
         farmManager.cancelTracking(block)
+    }
+
+    // Cactus/sugar cane/bamboo only grow through the fixed timer above - manually speeding them up
+    // with bonemeal is OP-only (dispenser-applied bonemeal has no player attached, so that's
+    // treated as non-OP too and blocked the same way).
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onFertilizeHeightPlant(event: BlockFertilizeEvent) {
+        val material = event.block.type
+        if (material != Material.CACTUS && material != Material.SUGAR_CANE && material != Material.BAMBOO) return
+        if (event.player?.isOp != true) {
+            event.isCancelled = true
+        }
     }
 
     // Farmland mined by a player drops itself (not vanilla's dirt) so it can be replanted

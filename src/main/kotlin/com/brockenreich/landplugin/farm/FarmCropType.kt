@@ -3,11 +3,12 @@ package com.brockenreich.landplugin.farm
 import org.bukkit.Material
 
 /**
- * The items /farm animate can enchant. `autoGrows` marks whether AreaFarmManager schedules a
- * fixed-time full-growth for it once planted - the three height-growing plants (cactus, sugar
- * cane, bamboo) are excluded from that (per design decision: they keep growing however tall
- * naturally, so a single "fully grown" timer doesn't apply the same way it does to an age-capped
- * crop) and are only unlocked for planting, nothing more.
+ * The items /farm animate can enchant. `autoGrows` marks whether AreaFarmManager schedules
+ * growth for it once planted. Most crops get a single fixed-time full-growth; cactus/sugar
+ * cane/bamboo instead grow one height segment at a time, repeating indefinitely (see
+ * FarmManager.HEIGHT_TYPES) - they're treated as shared community resources, not any one
+ * player's crop, so their base segment can only be broken by an OP (see FarmListener), keeping
+ * the plant itself alive for everyone to keep harvesting from the segments above it.
  */
 enum class FarmCropType(val label: String, val displayName: String, val autoGrows: Boolean, val defaultMinutes: Double) {
     SWEET_BERRY("sweetBerry", "달콤한 열매", true, 1.0),
@@ -29,9 +30,9 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
     JUNGLE_BIG_TREE("jungleBigTree", "정글 큰 나무", true, 10080.0),
     DARK_OAK_SAPLING("darkOakSapling", "짙은 참나무 묘목", true, 480.0),
     COCOA("cocoa", "코코아", true, 60.0),
-    CACTUS("cactus", "선인장", false, 0.0),
-    SUGAR_CANE("sugarCane", "사탕수수", false, 0.0),
-    BAMBOO("bamboo", "죽순", false, 0.0);
+    CACTUS("cactus", "선인장", true, 60.0),
+    SUGAR_CANE("sugarCane", "사탕수수", true, 180.0),
+    BAMBOO("bamboo", "죽순", true, 120.0);
 
     companion object {
         private val byItemMaterial: Map<Material, FarmCropType> = buildMap {

@@ -24,8 +24,31 @@ import java.io.File
  * elapsed time against its own maximumAge (so a 7-stage crop like a melon/pumpkin stem visibly
  * uses all 7 of its intermediate textures, not just the 3 an evenly-spaced 4-checkpoint scheme
  * would give it), instead of sitting frozen until the single instant it finishes.
+ *
+ * [HEIGHT_TYPES] (cactus, sugar cane, bamboo) don't have a single "fully grown" moment at all -
+ * each one instead grows exactly one segment taller per interval, indefinitely, for as long as
+ * its base segment survives (see FarmListener for why only an OP can break that base).
  */
 class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
+
+    companion object {
+        /** Grow one segment at a time, repeating indefinitely, instead of a single fixed completion. */
+        val HEIGHT_TYPES: Set<FarmCropType> = setOf(FarmCropType.CACTUS, FarmCropType.SUGAR_CANE, FarmCropType.BAMBOO)
+
+        private val HEIGHT_MATERIAL = mapOf(
+            FarmCropType.CACTUS to Material.CACTUS,
+            FarmCropType.SUGAR_CANE to Material.SUGAR_CANE,
+            FarmCropType.BAMBOO to Material.BAMBOO
+        )
+
+        // Vanilla's own natural caps for cactus/sugar cane (always 3) and a reasonable stand-in
+        // for bamboo (whose real cap varies per-plant in vanilla, unlike the other two).
+        private val HEIGHT_MAX = mapOf(
+            FarmCropType.CACTUS to 3,
+            FarmCropType.SUGAR_CANE to 3,
+            FarmCropType.BAMBOO to 16
+        )
+    }
 
     private data class Key(val world: String, val x: Int, val y: Int, val z: Int)
 
@@ -163,6 +186,24 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
             val block = world.getBlockAt(key.x, key.y, key.z)
 
             if (entry.dueAt <= now) {
+                if (entry.type in HEIGHT_TYPES) {
+                    // Never "finishes" - grow one more segment if there's room, then reschedule
+                    // for another interval indefinitely (a shared community plant keeps regrowing
+                    // for as long as its base survives).
+                    growOneHeightSegment(block, entry.type)
+                    val duration = durationFor(entry.type)
+                    if (duration == null) {
+                        iterator.remove()
+                        displays.remove(key)?.hologram?.remove()
+                    } else {
+                        entry.plantedAt = now
+                        entry.dueAt = now + duration
+                        entry.appliedAge = 0
+                    }
+                    changed = true
+                    continue
+                }
+
                 forceFullyGrown(block, entry.type)
                 // A structure-growth crop (sapling/mushroom family) can still fail after 40
                 // bonemeal attempts if it's genuinely obstructed (not enough open space for a
@@ -211,6 +252,28 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         block.blockData = data
         entry.appliedAge = targetAge
         return true
+    }
+
+    // Cactus never responds to bonemeal at all in vanilla, and sugar cane/bamboo respond to it
+    // unpredictably (bamboo especially can jump several segments or spawn a second stalk in one
+    // application) - neither gives the exact "one segment per interval" the fixed timer promises,
+    // so this places the new segment directly instead of simulating bonemeal like forceFullyGrown
+    // does for everything else.
+    private fun growOneHeightSegment(base: Block, type: FarmCropType) {
+        val material = HEIGHT_MATERIAL[type] ?: return
+        val maxHeight = HEIGHT_MAX[type] ?: return
+
+        var top = base
+        var height = 1
+        while (top.getRelative(BlockFace.UP).type == material && height < maxHeight) {
+            top = top.getRelative(BlockFace.UP)
+            height++
+        }
+        if (height >= maxHeight) return
+
+        val above = top.getRelative(BlockFace.UP)
+        if (!above.type.isAir) return
+        above.type = material
     }
 
     private fun celebrateGrowth(block: Block) {
