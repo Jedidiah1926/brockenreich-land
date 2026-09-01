@@ -54,6 +54,7 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
             put(Material.JUNGLE_SAPLING, JUNGLE_SAPLING)
             put(Material.DARK_OAK_SAPLING, DARK_OAK_SAPLING)
             put(Material.AZALEA, SAPLING)
+            put(Material.FLOWERING_AZALEA, SAPLING)
             put(Material.COCOA_BEANS, COCOA)
             put(Material.CACTUS, CACTUS)
             put(Material.SUGAR_CANE, SUGAR_CANE)
