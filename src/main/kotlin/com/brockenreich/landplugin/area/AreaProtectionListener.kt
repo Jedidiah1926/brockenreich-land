@@ -11,6 +11,7 @@ import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockBurnEvent
 import org.bukkit.event.block.BlockIgniteEvent
 import org.bukkit.event.block.BlockExplodeEvent
 import org.bukkit.event.block.BlockFromToEvent
@@ -332,6 +333,31 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
         if (crossesBoundary) {
             event.newCurrent = event.oldCurrent
+        }
+    }
+
+    // FIRE guards ignition itself (flint & steel, lightning, lava, fireballs, ...) and FIRE_SPREAD
+    // guards fire spreading on its own - a fire block spreading to a new one (BlockIgniteEvent with
+    // cause SPREAD) and a flammable block being consumed by adjacent fire (BlockBurnEvent). Kept
+    // independent of the blockIgniting AreaPermission above, which only governs player-caused
+    // ignition; these apply regardless of cause.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockIgniteProtection(event: BlockIgniteEvent) {
+        val area = areaManager.areaAt(event.block.location)
+        val protection = if (event.cause == BlockIgniteEvent.IgniteCause.SPREAD) {
+            AreaProtection.FIRE_SPREAD
+        } else {
+            AreaProtection.FIRE
+        }
+        if (area.protections.contains(protection)) {
+            event.isCancelled = true
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onBlockBurn(event: BlockBurnEvent) {
+        if (areaManager.areaAt(event.block.location).protections.contains(AreaProtection.FIRE_SPREAD)) {
+            event.isCancelled = true
         }
     }
 }
