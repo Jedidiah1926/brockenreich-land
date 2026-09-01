@@ -14,6 +14,7 @@ import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockBurnEvent
 import org.bukkit.event.block.BlockDispenseEvent
+import org.bukkit.event.block.BlockFertilizeEvent
 import org.bukkit.event.block.BlockIgniteEvent
 import org.bukkit.event.block.BlockExplodeEvent
 import org.bukkit.event.block.BlockFromToEvent
@@ -363,6 +364,19 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onStructureGrow(event: StructureGrowEvent) {
         val originArea = areaManager.areaAt(event.location)
+        if (!originArea.protections.contains(AreaProtection.OVERFLOW)) return
+        event.blocks.removeIf { blockState ->
+            areaManager.areaAt(blockState.location) !== originArea
+        }
+    }
+
+    // Bonemeal on grass (spawning tall grass/flowers in a radius) doesn't go through
+    // StructureGrowEvent above - it's a separate event, filtered the same way: only when the
+    // fertilized block itself sits in an OVERFLOW-protected area, dropping any resulting block
+    // that would land in a different area than that origin.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onFertilize(event: BlockFertilizeEvent) {
+        val originArea = areaManager.areaAt(event.block.location)
         if (!originArea.protections.contains(AreaProtection.OVERFLOW)) return
         event.blocks.removeIf { blockState ->
             areaManager.areaAt(blockState.location) !== originArea
