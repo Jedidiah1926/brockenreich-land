@@ -7,6 +7,7 @@ import org.bukkit.Material
 import org.bukkit.Sound
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
+import org.bukkit.block.data.Levelled
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
@@ -90,6 +91,17 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         if (event.player.gameMode == GameMode.CREATIVE) return
         event.isDropItems = false
         event.block.world.dropItemNaturally(event.block.location.add(0.5, 0.1, 0.5), ItemStack(Material.FARMLAND))
+    }
+
+    // Farmland placed by a player starts fully moist (the dark, wet-looking texture) instead of
+    // vanilla's dry default - moisture would only ever rise on its own via random ticks anyway,
+    // which never happen with randomTickSpeed 0.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onPlaceFarmland(event: BlockPlaceEvent) {
+        if (event.blockPlaced.type != Material.FARMLAND) return
+        val data = event.blockPlaced.blockData as? Levelled ?: return
+        data.level = data.maximumLevel
+        event.blockPlaced.blockData = data
     }
 
     // Farmland never reverts to dirt on this server, whether from a mob/player trampling it...
