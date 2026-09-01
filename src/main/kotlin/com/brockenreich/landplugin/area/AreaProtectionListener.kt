@@ -32,6 +32,7 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent
 import org.bukkit.event.player.PlayerBucketFillEvent
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
 
 /** Enforces the non-entrance/exit AreaPermission flags against the matching Bukkit events. */
@@ -300,6 +301,19 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
         if (areaManager.areaAt(event.entity.location).protections.contains(AreaProtection.EXPLOSION_DAMAGE)) {
             event.isCancelled = true
+        }
+    }
+
+    // Trees, huge mushrooms, etc. Only filters when the sapling/origin block sits in an
+    // OVERFLOW-protected area, dropping any resulting block (leaves, logs, ...) that would land in
+    // a different area than that origin - so growth stays contained within whichever region or
+    // world catch-all area it started in.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onStructureGrow(event: StructureGrowEvent) {
+        val originArea = areaManager.areaAt(event.location)
+        if (!originArea.protections.contains(AreaProtection.OVERFLOW)) return
+        event.blocks.removeIf { blockState ->
+            areaManager.areaAt(blockState.location) !== originArea
         }
     }
 }

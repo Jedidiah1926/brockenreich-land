@@ -35,7 +35,8 @@ enum class AreaProtection(val label: String) {
     FLOOD("flood"),
     POTION("potion"),
     EXPLOSION("explosion"),
-    EXPLOSION_DAMAGE("explosionDamage");
+    EXPLOSION_DAMAGE("explosionDamage"),
+    OVERFLOW("overflow");
 
     companion object {
         fun parse(value: String): AreaProtection? =
