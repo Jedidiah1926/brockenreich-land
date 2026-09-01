@@ -37,7 +37,6 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         val type = FarmCropType.forItem(event.itemInHand.type) ?: return
         if (!farmItems.isAnimated(event.itemInHand)) {
             event.isCancelled = true
-            event.player.sendMessage("§c인챈트되지 않은 씨앗/모종은 심을 수 없습니다. /farm animate 로 먼저 인챈트하세요.")
             return
         }
         when (type) {
