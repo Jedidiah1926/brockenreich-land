@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin
 
+import com.brockenreich.landplugin.area.AreaBoatGuard
 import com.brockenreich.landplugin.area.AreaCommand
 import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
@@ -23,6 +24,7 @@ class LandPlugin : JavaPlugin() {
 
         server.pluginManager.registerEvents(AreaMoveListener(areaManager), this)
         server.pluginManager.registerEvents(AreaProtectionListener(areaManager), this)
+        AreaBoatGuard(this, areaManager).start()
 
         logger.info("BrockenreichLand enabled.")
     }
