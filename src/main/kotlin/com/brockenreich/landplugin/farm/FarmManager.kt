@@ -68,6 +68,9 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
         save()
     }
 
+    /** The FarmCropType [block] is currently tracked as, or null if it isn't a tracked planting. */
+    fun typeOf(block: Block): FarmCropType? = entries[keyOf(block)]?.type
+
     /**
      * Shift-right-click toggle: spawns a floating name-tag-style hologram 1.5 blocks above
      * [block] showing its live remaining time (updated every tick() second), or removes it if one

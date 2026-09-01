@@ -84,9 +84,24 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
     // remove its countdown hologram, if one was toggled on) - otherwise it keeps counting down
     // toward growing a block that's no longer there, and a hologram is left floating with nothing
     // under it. Cheap no-op for every other block break, so this isn't scoped to any one material.
+    //
+    // A linked 2x2 "big tree" group (jungle or dark oak) is all-or-nothing: breaking one corner
+    // means the other three can never complete the arrangement either, so they're broken along
+    // with it instead of being left as 3 orphaned saplings still counting down toward a tree that
+    // can no longer form.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onBreakTrackedCrop(event: BlockBreakEvent) {
-        farmManager.cancelTracking(event.block)
+        val block = event.block
+        val type = farmManager.typeOf(block)
+        if (type == FarmCropType.JUNGLE_BIG_TREE || type == FarmCropType.DARK_OAK_SAPLING) {
+            findCompleted2x2(block, block.type)?.forEach { corner ->
+                if (corner != block) {
+                    corner.breakNaturally()
+                    farmManager.cancelTracking(corner)
+                }
+            }
+        }
+        farmManager.cancelTracking(block)
     }
 
     // Farmland mined by a player drops itself (not vanilla's dirt) so it can be replanted
