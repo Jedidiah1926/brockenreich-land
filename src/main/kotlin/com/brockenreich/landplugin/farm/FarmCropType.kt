@@ -10,17 +10,22 @@ import org.bukkit.Material
  * crop) and are only unlocked for planting, nothing more.
  */
 enum class FarmCropType(val label: String, val displayName: String, val autoGrows: Boolean, val defaultMinutes: Double) {
-    SWEET_BERRY("sweetBerry", "달콤한 열매", true, 15.0),
-    POTATO("potato", "감자", true, 20.0),
-    CARROT("carrot", "당근", true, 20.0),
+    SWEET_BERRY("sweetBerry", "달콤한 열매", true, 1.0),
+    POTATO("potato", "감자", true, 4.0),
+    CARROT("carrot", "당근", true, 10.0),
     BEETROOT("beetrootSeeds", "비트 씨앗", true, 15.0),
     MELON("melonSeeds", "수박 씨앗", true, 30.0),
-    PUMPKIN("pumpkinSeeds", "호박 씨앗", true, 30.0),
-    WHEAT("wheatSeeds", "밀 씨앗", true, 20.0),
-    NETHER_WART("netherWart", "네더 와트", true, 25.0),
-    MUSHROOM("mushroom", "버섯", true, 40.0),
-    SAPLING("sapling", "나무 묘목", true, 30.0),
-    COCOA("cocoa", "코코아", true, 20.0),
+    PUMPKIN("pumpkinSeeds", "호박 씨앗", true, 60.0),
+    WHEAT("wheatSeeds", "밀 씨앗", true, 60.0),
+    NETHER_WART("netherWart", "네더 와트", true, 30.0),
+    MUSHROOM("mushroom", "버섯", true, 120.0),
+    // Oak/spruce/birch/acacia/dark oak/cherry saplings and mangrove propagules - a normal 1x1
+    // tree. Jungle is split out below since a lone jungle sapling grows much slower than the
+    // rest. A 2x2 "big tree" arrangement (dark oak always, jungle optionally) isn't given its own
+    // duration here - see FarmManager's forceFullyGrown doc for why that needs no special code.
+    SAPLING("sapling", "나무 묘목", true, 180.0),
+    JUNGLE_SAPLING("jungleSapling", "정글 나무 묘목", true, 2160.0),
+    COCOA("cocoa", "코코아", true, 60.0),
     CACTUS("cactus", "선인장", false, 0.0),
     SUGAR_CANE("sugarCane", "사탕수수", false, 0.0),
     BAMBOO("bamboo", "죽순", false, 0.0);
@@ -37,12 +42,13 @@ enum class FarmCropType(val label: String, val displayName: String, val autoGrow
             put(Material.NETHER_WART, NETHER_WART)
             put(Material.RED_MUSHROOM, MUSHROOM)
             put(Material.BROWN_MUSHROOM, MUSHROOM)
+            put(Material.JUNGLE_SAPLING, JUNGLE_SAPLING)
             put(Material.COCOA_BEANS, COCOA)
             put(Material.CACTUS, CACTUS)
             put(Material.SUGAR_CANE, SUGAR_CANE)
             put(Material.BAMBOO, BAMBOO)
             Material.entries
-                .filter { it.name.endsWith("_SAPLING") || it.name == "MANGROVE_PROPAGULE" }
+                .filter { (it.name.endsWith("_SAPLING") && it != Material.JUNGLE_SAPLING) || it.name == "MANGROVE_PROPAGULE" }
                 .forEach { put(it, SAPLING) }
         }
 

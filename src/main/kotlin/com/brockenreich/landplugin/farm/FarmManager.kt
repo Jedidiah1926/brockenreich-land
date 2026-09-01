@@ -129,7 +129,8 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
 
     private fun isStillGrowing(block: Block, type: FarmCropType): Boolean = when (type) {
         FarmCropType.MUSHROOM -> block.type == Material.RED_MUSHROOM || block.type == Material.BROWN_MUSHROOM
-        FarmCropType.SAPLING -> block.type.name.endsWith("_SAPLING") || block.type == Material.MANGROVE_PROPAGULE
+        FarmCropType.SAPLING, FarmCropType.JUNGLE_SAPLING ->
+            block.type.name.endsWith("_SAPLING") || block.type == Material.MANGROVE_PROPAGULE
         else -> (block.blockData as? Ageable)?.let { it.age < it.maximumAge } ?: false
     }
 
@@ -137,7 +138,13 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     // growth logic for every crop shape, including odd ones like a sapling's tree generation,
     // instead of reimplementing each one's rules by hand. Most crops finish in 1-2 calls; the
     // probabilistic ones (mushroom/sapling) are looped up to 40 times so a bad string of rolls
-    // essentially never leaves growth incomplete.
+    // essentially never leaves growth incomplete. This also means a dark oak/jungle "big tree"
+    // (a 2x2 sapling arrangement) needs no special handling here at all: each of the 4 corner
+    // saplings is tracked and timed independently, but whichever one's timer fires first calls
+    // real vanilla bonemeal on a block that - by then - already has its 3 neighbors planted, so
+    // vanilla itself recognizes the complete 2x2 layout and grows the giant tree; the other three
+    // corners' still-pending entries simply find a non-sapling block (already consumed into the
+    // tree) once their own timers fire and no-op.
     private fun forceFullyGrown(block: Block, type: FarmCropType) {
         // Melon/pumpkin don't spawn their fruit in the usual adjacent block here - the stem's own
         // position is replaced by the fruit outright, so there's no leftover attached-stem block
