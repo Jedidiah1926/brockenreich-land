@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.area
 
+import com.brockenreich.landplugin.guild.GuildManager
 import com.sk89q.worldedit.IncompleteRegionException
 import com.sk89q.worldedit.bukkit.BukkitAdapter
 import com.sk89q.worldedit.bukkit.WorldEditPlugin
@@ -11,7 +12,7 @@ import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 
-class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCompleter {
+class AreaCommand(private val areaManager: AreaManager, private val guildManager: GuildManager) : CommandExecutor, TabCompleter {
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if (args.isEmpty()) {
@@ -57,6 +58,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         sender.sendMessage("§e/area modify <target> role remove admin <닉네임> §7- OP 전용")
         sender.sendMessage("§e/area modify region:<이름> parent add <부모구역이름> §7- OP 전용, 모든 부모의 admin이면 이 구역도 자동 admin")
         sender.sendMessage("§e/area modify region:<이름> parent remove <부모구역이름> §7- OP 전용")
+        sender.sendMessage("§e/area modify region:<이름> guild set <길드이름> §7- OP 전용, 길드장/간부가 이 구역의 admin이 됨")
+        sender.sendMessage("§e/area modify region:<이름> guild remove §7- OP 전용")
         sender.sendMessage("§e/area modify <target> role permission @everyone <add|remove> <권한>")
         sender.sendMessage("§e/area modify <target> role permission <닉네임> <add|remove> <권한>")
         sender.sendMessage("§e/area modify <target> protection <add|remove> <보호>")
@@ -226,6 +229,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         if (area.parents.isNotEmpty()) {
             sender.sendMessage("§7부모 구역: ${area.parents.joinToString(", ")} §7(전부에서 admin이어야 이 구역도 admin)")
         }
+        area.ownerGuild?.let { sender.sendMessage("§7소유 길드: $it §7(길드장/간부는 이 구역의 admin)") }
         sender.sendMessage(
             "§7@everyone 허용 권한: ${if (area.permissions.isEmpty()) "없음" else area.permissions.joinToString(", ") { it.label }}"
         )
@@ -263,7 +267,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         }
 
         if (args.size < 3) {
-            sender.sendMessage("§c사용법: /area modify ${args[1]} <role|parent|protection> ...")
+            sender.sendMessage("§c사용법: /area modify ${args[1]} <role|parent|guild|protection> ...")
             return
         }
 
@@ -273,6 +277,13 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
         // grant themselves or others extra admin rights through it.
         if (category == "parent") {
             if (requireOp(sender)) handleModifyParent(sender, area, args)
+            return
+        }
+
+        // guild set/remove is OP-only too, for the same reason - assigning land ownership is a
+        // structural decision, not something an existing admin (or the guild itself) can grant.
+        if (category == "guild") {
+            if (requireOp(sender)) handleModifyGuild(sender, area, args)
             return
         }
 
@@ -331,7 +342,7 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
 
         when (category) {
             "protection" -> handleModifyProtection(sender, area, args)
-            else -> sender.sendMessage("§c'role', 'parent' 또는 'protection' 이어야 합니다.")
+            else -> sender.sendMessage("§c'role', 'parent', 'guild' 또는 'protection' 이어야 합니다.")
         }
     }
 
@@ -396,6 +407,44 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             }
             else -> {
                 sender.sendMessage("§c'add' 또는 'remove' 이어야 합니다.")
+                return
+            }
+        }
+        areaManager.save()
+    }
+
+    private fun handleModifyGuild(sender: CommandSender, area: Area, args: Array<out String>) {
+        if (area.target !is AreaTarget.Region) {
+            sender.sendMessage("§c월드 구역은 길드가 소유할 수 없습니다.")
+            return
+        }
+        if (args.size < 4) {
+            sender.sendMessage("§c사용법: /area modify ${args[1]} guild <set|remove> [길드이름]")
+            return
+        }
+        val action = args[3].lowercase()
+
+        when (action) {
+            "set" -> {
+                val guildName = args.getOrNull(4)
+                if (guildName == null) {
+                    sender.sendMessage("§c사용법: /area modify ${args[1]} guild set <길드이름>")
+                    return
+                }
+                val guild = guildManager.guild(guildName)
+                if (guild == null) {
+                    sender.sendMessage("§c존재하지 않는 길드입니다: $guildName")
+                    return
+                }
+                area.ownerGuild = guild.name
+                sender.sendMessage("§e[${area.target.key()}]§f 구역의 소유 길드를 §e[${guild.name}]§f (으)로 설정했습니다.")
+            }
+            "remove" -> {
+                area.ownerGuild = null
+                sender.sendMessage("§e[${area.target.key()}]§f 구역의 소유 길드를 해제했습니다.")
+            }
+            else -> {
+                sender.sendMessage("§c'set' 또는 'remove' 이어야 합니다.")
                 return
             }
         }
@@ -529,13 +578,14 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
                 } else {
                     emptyList()
                 }
-                "modify" -> listOf("role", "parent", "protection").filter { it.startsWith(args[2].lowercase()) }
+                "modify" -> listOf("role", "parent", "guild", "protection").filter { it.startsWith(args[2].lowercase()) }
                 else -> emptyList()
             }
             4 -> if (args[0].lowercase() == "modify") {
                 when (args[2].lowercase()) {
                     "role" -> listOf("add", "remove", "permission").filter { it.startsWith(args[3].lowercase()) }
                     "parent" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
+                    "guild" -> listOf("set", "remove").filter { it.startsWith(args[3].lowercase()) }
                     "protection" -> listOf("add", "remove").filter { it.startsWith(args[3].lowercase()) }
                     else -> emptyList()
                 }
@@ -554,6 +604,8 @@ class AreaCommand(private val areaManager: AreaManager) : CommandExecutor, TabCo
             } else if (args[2].lowercase() == "parent" && (args[3].lowercase() == "add" || args[3].lowercase() == "remove")) {
                 areaManager.regions().map { it.target.key().removePrefix("region:") }
                     .filter { it.startsWith(args[4], ignoreCase = true) }
+            } else if (args[2].lowercase() == "guild" && args[3].lowercase() == "set") {
+                guildManager.guilds().map { it.name }.filter { it.startsWith(args[4], ignoreCase = true) }
             } else {
                 emptyList()
             }

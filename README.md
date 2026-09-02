@@ -72,6 +72,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 - **멤버(member)**: 해당 구역에서 모든 권한을 항상 허용받는 플레이어 목록.
 - **admin("땅 주인")**: 서버 OP가 아니어도, 그 구역 하나에 한해 `/area modify`/`/area info` 를 쓸 수 있는 플레이어 목록. member/권한과는 별개로, "이 명령을 쓸 수 있는가"에 대한 권한입니다. admin을 임명/해제하는 것 자체는 OP만 가능합니다 (admin이 스스로를 승격시키거나 다른 admin을 마음대로 못 늘리도록).
 - **parent(부모 구역, admin 상속)**: 구역(region)에만 설정 가능. 어떤 구역에 부모 구역들을 지정하면, **모든 부모 구역에서 admin인 플레이어만** 자식 구역도 자동으로 admin이 됩니다 (AND 조건 — 부모가 여러 개면 전부 만족해야 함). 부모 중 하나에서라도 admin 자격을 잃으면 자식의 상속된 admin 자격도 즉시 같이 빠집니다. 순환 참조(자기 자신이 조상이 되는 구조)는 만들 수 없고, 설정도 OP 전용입니다.
+- **소유 길드(ownerGuild)**: 구역(region)에만 설정 가능. 구역에 [길드](#길드guild-시스템)를 소유주로 지정하면, 그 길드의 **길드장과 간부**가 이 구역의 admin이 됩니다 (일반 길드원은 자동으로 admin이 되지 않음). parent와 마찬가지로 설정은 OP 전용입니다. 자세한 내용은 아래 길드 시스템 문단 참고.
 - **`@everyone` 권한**: 멤버가 아닌 모든 플레이어에게 적용되는 기본 권한. 새 구역은 `administration` 을 제외한 모든 권한이 기본 허용 상태로 시작합니다.
 - **개별 유저 권한**: 특정 닉네임에게 `@everyone` 설정과 별개로 추가로 권한을 허용할 수 있음 (`@everyone`이 막혀 있어도 개별 허용된 유저는 통과 가능 — 합집합 방식, 뺏는 방향으로는 동작하지 않음).
 
@@ -145,6 +146,8 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 /area modify <target> role remove admin <닉네임>       # OP 전용
 /area modify region:<이름> parent add <부모구역이름>    # OP 전용 - 모든 부모의 admin이면 자동 admin
 /area modify region:<이름> parent remove <부모구역이름> # OP 전용
+/area modify region:<이름> guild set <길드이름>         # OP 전용 - 길드장/간부가 이 구역의 admin이 됨
+/area modify region:<이름> guild remove                # OP 전용
 /area modify <target> role permission @everyone <add|remove> <권한>
 /area modify <target> role permission <닉네임> <add|remove> <권한>
 /area modify <target> protection <add|remove> <보호>
@@ -181,6 +184,46 @@ parent 예시:
 `@everyone` 설정과 무관하게 들어갈 수 있습니다. `green` 구역에서는 `@everyone`(멤버 제외)의 블록 파괴가 막힙니다.
 
 전부 관리자(OP) 전용 명령이며, 설정은 `plugins/BrockenreichLand/areas.yml` 에 저장됩니다.
+
+## 길드(Guild) 시스템
+
+플레이어끼리 자율적으로 만드는 조직입니다. **길드는 법인과 비슷한 개념**이라, 길드 자체가 땅(구역)을 소유할
+수 있습니다 — 특정 플레이어 한 명이 아니라 "회사" 명의로 부동산을 갖는 것과 같습니다. 실제로 그 땅을
+관리(설정 변경)하는 건 회사의 대표/임원에 해당하는 **길드장·간부**이고, 일반 사원에 해당하는 **일반
+길드원**은 길드에 속해 있다는 것만으로 그 땅의 관리 권한이 자동으로 생기지는 않습니다 (필요하면 구역 admin이
+개별 멤버/권한으로 따로 허용해줘야 함).
+
+### 직급
+
+- **길드장**: 길드를 만든 사람. 간부 승급/강등, 길드 해체를 할 수 있음. 탈퇴는 불가 (해체만 가능).
+- **간부**: 길드장이 승급시킨 사람. 길드원 초대/추방 가능.
+- **일반 길드원**: 초대받아 들어온 사람. 초대/추방/승급 권한 없음.
+
+### 명령어
+
+```
+/guild create <길드이름>                # 누구나 사용 가능, 본인이 길드장이 됨
+/guild disband <길드이름>               # 길드장 전용 (OP는 예외적으로 항상 가능)
+/guild invite <길드이름> <닉네임>        # 길드장/간부
+/guild kick <길드이름> <닉네임>          # 길드장/간부 (간부는 길드장만 추방 가능)
+/guild promote <길드이름> <닉네임>       # 길드장 전용 - 일반 길드원 → 간부
+/guild demote <길드이름> <닉네임>        # 길드장 전용 - 간부 → 일반 길드원
+/guild leave <길드이름>                 # 길드장 제외 누구나
+/guild info <길드이름>
+/guild list
+```
+
+### 구역과 연결하기
+
+```
+/area modify region:<이름> guild set <길드이름>   # OP 전용
+/area modify region:<이름> guild remove           # OP 전용
+```
+
+구역(region)에만 설정할 수 있고(월드 기본 구역은 불가), 설정하는 순간부터 그 길드의 길드장·간부가 해당
+구역의 admin이 됩니다 (`/area modify`/`/area info`를 그 구역에 한해 쓸 수 있음, 기존 admin 개념과 동일하게
+작동 — 자세한 건 위 구역 관리 문단의 admin/parent 설명 참고). 길드에서 간부 자격을 잃으면 그 구역의 admin
+자격도 즉시 같이 빠집니다. 설정은 `plugins/BrockenreichLand/guilds.yml` 에 저장됩니다.
 
 ## 농장(Farm) 시스템
 

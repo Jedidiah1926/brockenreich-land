@@ -10,6 +10,8 @@ import com.brockenreich.landplugin.farm.FarmCommand
 import com.brockenreich.landplugin.farm.FarmItems
 import com.brockenreich.landplugin.farm.FarmListener
 import com.brockenreich.landplugin.farm.FarmManager
+import com.brockenreich.landplugin.guild.GuildCommand
+import com.brockenreich.landplugin.guild.GuildManager
 import org.bukkit.plugin.java.JavaPlugin
 
 class LandPlugin : JavaPlugin() {
@@ -20,12 +22,24 @@ class LandPlugin : JavaPlugin() {
     lateinit var farmManager: FarmManager
         private set
 
+    lateinit var guildManager: GuildManager
+        private set
+
     override fun onEnable() {
-        areaManager = AreaManager(dataFolder, logger)
+        guildManager = GuildManager(dataFolder, logger)
+        guildManager.load()
+
+        getCommand("guild")?.let { command ->
+            val executor = GuildCommand(guildManager)
+            command.setExecutor(executor)
+            command.tabCompleter = executor
+        }
+
+        areaManager = AreaManager(dataFolder, logger, guildManager)
         areaManager.load()
 
         getCommand("area")?.let { command ->
-            val executor = AreaCommand(areaManager)
+            val executor = AreaCommand(areaManager, guildManager)
             command.setExecutor(executor)
             command.tabCompleter = executor
         }
@@ -58,6 +72,9 @@ class LandPlugin : JavaPlugin() {
         }
         if (::farmManager.isInitialized) {
             farmManager.save()
+        }
+        if (::guildManager.isInitialized) {
+            guildManager.save()
         }
         logger.info("BrockenreichLand disabled.")
     }

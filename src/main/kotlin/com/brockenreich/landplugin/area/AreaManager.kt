@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.area
 
+import com.brockenreich.landplugin.guild.GuildManager
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
@@ -8,7 +9,7 @@ import java.io.File
 import java.util.UUID
 import java.util.logging.Logger
 
-class AreaManager(private val dataFolder: File, private val logger: Logger) {
+class AreaManager(private val dataFolder: File, private val logger: Logger, private val guildManager: GuildManager) {
 
     private val file = File(dataFolder, "areas.yml")
     private val regions: MutableMap<String, Area> = mutableMapOf()
@@ -62,16 +63,20 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
     }
 
     /**
-     * Whether [player] manages [area] as an admin, either directly (area.isAdmin) or by inheritance:
-     * a region with parents is only effectively admin'd by a player who is themselves an effective
-     * admin of *every* one of its parents (AND, not OR) - so losing admin in just one parent drops
-     * the derived admin status here too, with no explicit action needed on this region.
+     * Whether [player] manages [area] as an admin: directly (area.isAdmin), as the leader/officer
+     * of the guild that owns this region (see Area.ownerGuild - a deleted or unset guild just
+     * means nothing here, not an error), or by inheritance - a region with parents is only
+     * effectively admin'd by a player who is themselves an effective admin of *every* one of its
+     * parents (AND, not OR), so losing admin in just one parent drops the derived admin status
+     * here too, with no explicit action needed on this region.
      */
     fun isEffectiveAdmin(player: OfflinePlayer, area: Area): Boolean =
         isEffectiveAdmin(player, area, mutableSetOf())
 
     private fun isEffectiveAdmin(player: OfflinePlayer, area: Area, visiting: MutableSet<String>): Boolean {
         if (area.isAdmin(player)) return true
+        val guild = area.ownerGuild?.let { guildManager.guild(it) }
+        if (guild != null && guild.isOfficerOrAbove(player.uniqueId)) return true
         val target = area.target
         if (target !is AreaTarget.Region) return false
         if (!visiting.add(target.name.lowercase())) return false // cycle guard
@@ -126,6 +131,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             loadPlayerPermissions(section, area)
             area.protections.addAll(section.getStringList("protections").mapNotNull { AreaProtection.parse(it) })
             area.parents.addAll(section.getStringList("parents"))
+            area.ownerGuild = section.getString("ownerGuild")
             regions[key] = area
         }
 
@@ -183,6 +189,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             }
             yaml.set("$base.protections", area.protections.map { it.name })
             yaml.set("$base.parents", area.parents.toList())
+            area.ownerGuild?.let { yaml.set("$base.ownerGuild", it) }
         }
 
         worldAreas.forEach { (key, area) ->

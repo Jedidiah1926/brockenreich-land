@@ -105,6 +105,14 @@ class Area(val target: AreaTarget, var world: String) {
     val admins: MutableSet<UUID> = mutableSetOf()
     /** Region names (only meaningful when target is a Region) this area inherits admin from - see AreaManager.isEffectiveAdmin. */
     val parents: MutableSet<String> = mutableSetOf()
+    /**
+     * The guild (see com.brockenreich.landplugin.guild) that owns this region, if any - a
+     * corporation-style ownership: the guild's leader and officers manage the land on the guild's
+     * behalf (effective admin, same as a directly-assigned admin - see AreaManager.isEffectiveAdmin),
+     * but rank-and-file guild membership alone doesn't grant that. Only meaningful for regions,
+     * same as `parents`.
+     */
+    var ownerGuild: String? = null
     val permissions: MutableSet<AreaPermission> =
         AreaPermission.entries.filterTo(mutableSetOf()) { it != AreaPermission.ADMINISTRATION }
     val playerPermissions: MutableMap<UUID, MutableSet<AreaPermission>> = mutableMapOf()

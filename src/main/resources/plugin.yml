@@ -12,6 +12,9 @@ commands:
   farm:
     description: Enchant a held farm item so it can be planted with fixed-time growth.
     usage: /<command> <animate|time test [초]|time default>
+  guild:
+    description: Manage player-run guilds, which can own land.
+    usage: /<command> <create|disband|invite|kick|promote|demote|leave|info|list> ...
 permissions:
   brockenreichland.area:
     description: Manage land areas
