@@ -136,6 +136,7 @@ WorldEdit(소프트 디펜던시)과 연동되는 땅 관리 기능입니다. `r
 ```
 /area region create <이름>                             # 현재 WorldEdit 선택 영역으로 region:<이름> 생성
 /area region delete <이름>
+/area region rename <기존이름> <새이름>                 # 이미 존재하는 이름으로는 변경 불가
 /area world create <월드이름>                           # world:<월드이름> 등록 (기본: administration 제외 모든 권한 허용)
 /area world delete <월드이름>                           # world:<월드이름> 을 기본값으로 초기화
 /area list

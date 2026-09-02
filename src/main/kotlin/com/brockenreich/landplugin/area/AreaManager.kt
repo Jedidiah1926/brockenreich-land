@@ -56,6 +56,44 @@ class AreaManager(private val dataFolder: File, private val logger: Logger, priv
         return removed
     }
 
+    /**
+     * Renames a region, keeping all of its data (bounds, members, admins, permissions,
+     * protections, parents, ownerGuild) and rewriting every other region's `parents` references
+     * that pointed at the old name so inherited admin status isn't silently broken.
+     */
+    fun renameRegion(oldName: String, newName: String): Area {
+        val oldKey = oldName.lowercase()
+        val newKey = newName.lowercase()
+        val area = regions[oldKey] ?: throw IllegalArgumentException("존재하지 않는 구역입니다: $oldName")
+        if (newKey != oldKey && regions.containsKey(newKey)) {
+            throw IllegalArgumentException("이미 존재하는 구역 이름입니다: $newName")
+        }
+
+        val renamed = Area(AreaTarget.Region(newName), area.world)
+        renamed.min = area.min
+        renamed.max = area.max
+        renamed.members.addAll(area.members)
+        renamed.admins.addAll(area.admins)
+        renamed.parents.addAll(area.parents)
+        renamed.ownerGuild = area.ownerGuild
+        renamed.permissions.clear()
+        renamed.permissions.addAll(area.permissions)
+        area.playerPermissions.forEach { (uuid, perms) -> renamed.playerPermissions[uuid] = perms.toMutableSet() }
+        renamed.protections.addAll(area.protections)
+
+        regions.remove(oldKey)
+        regions[newKey] = renamed
+
+        regions.values.forEach { other ->
+            if (other.parents.removeIf { it.equals(oldName, ignoreCase = true) }) {
+                other.parents.add(newName)
+            }
+        }
+
+        save()
+        return renamed
+    }
+
     /** The most specific area covering [location]: a region if one contains it, else the world's catch-all area. */
     fun areaAt(location: Location): Area {
         val region = regions.values.firstOrNull { it.contains(location) }

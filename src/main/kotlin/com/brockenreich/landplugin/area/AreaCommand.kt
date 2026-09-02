@@ -48,6 +48,7 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
         sender.sendMessage("§e--- /area 사용법 ---")
         sender.sendMessage("§e/area region create <이름> §7- WorldEdit 선택 영역으로 region:<이름> 생성")
         sender.sendMessage("§e/area region delete <이름>")
+        sender.sendMessage("§e/area region rename <기존이름> <새이름> §7- 이미 존재하는 이름으로는 변경 불가")
         sender.sendMessage("§e/area world create <월드이름> §7- world:<월드이름> 등록 (기본: administration 제외 모든 권한 허용)")
         sender.sendMessage("§e/area world delete <월드이름> §7- world:<월드이름> 을 기본값으로 초기화")
         sender.sendMessage("§e/area list")
@@ -77,13 +78,14 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
 
     private fun handleRegion(sender: CommandSender, args: Array<out String>) {
         if (args.size < 2) {
-            sender.sendMessage("§c사용법: /area region <create|delete> <이름>")
+            sender.sendMessage("§c사용법: /area region <create|delete|rename> <이름>")
             return
         }
         when (args[1].lowercase()) {
             "create" -> handleRegionCreate(sender, args)
             "delete" -> handleRegionDelete(sender, args)
-            else -> sender.sendMessage("§c'create' 또는 'delete' 이어야 합니다.")
+            "rename" -> handleRegionRename(sender, args)
+            else -> sender.sendMessage("§c'create', 'delete' 또는 'rename' 이어야 합니다.")
         }
     }
 
@@ -134,6 +136,21 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
             sender.sendMessage("§a구역 'region:$name' 을(를) 삭제했습니다.")
         } else {
             sender.sendMessage("§c존재하지 않는 구역입니다: region:$name")
+        }
+    }
+
+    private fun handleRegionRename(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 4) {
+            sender.sendMessage("§c사용법: /area region rename <기존이름> <새이름>")
+            return
+        }
+        val oldName = args[2]
+        val newName = args[3]
+        try {
+            areaManager.renameRegion(oldName, newName)
+            sender.sendMessage("§a구역 'region:$oldName' 을(를) 'region:$newName' (으)로 이름을 변경했습니다.")
+        } catch (e: IllegalArgumentException) {
+            sender.sendMessage("§c${e.message}")
         }
     }
 
@@ -562,12 +579,13 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
         return when (args.size) {
             1 -> listOf("region", "world", "list", "info", "modify").filter { it.startsWith(args[0].lowercase()) }
             2 -> when (args[0].lowercase()) {
-                "region", "world" -> listOf("create", "delete").filter { it.startsWith(args[1].lowercase()) }
+                "region" -> listOf("create", "delete", "rename").filter { it.startsWith(args[1].lowercase()) }
+                "world" -> listOf("create", "delete").filter { it.startsWith(args[1].lowercase()) }
                 "info", "modify" -> completeTargets(args[1])
                 else -> emptyList()
             }
             3 -> when (args[0].lowercase()) {
-                "region" -> if (args[1].lowercase() == "delete") {
+                "region" -> if (args[1].lowercase() == "delete" || args[1].lowercase() == "rename") {
                     areaManager.regions().map { it.target.key().removePrefix("region:") }
                         .filter { it.startsWith(args[2].lowercase()) }
                 } else {
