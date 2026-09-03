@@ -6,6 +6,8 @@ import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
 import com.brockenreich.landplugin.area.AreaPlayerGuard
 import com.brockenreich.landplugin.area.AreaProtectionListener
+import com.brockenreich.landplugin.economy.EconomyCommand
+import com.brockenreich.landplugin.economy.EconomyManager
 import com.brockenreich.landplugin.farm.FarmCommand
 import com.brockenreich.landplugin.farm.FarmItems
 import com.brockenreich.landplugin.farm.FarmListener
@@ -35,6 +37,9 @@ class LandPlugin : JavaPlugin() {
         private set
 
     lateinit var nicknameManager: NicknameManager
+        private set
+
+    lateinit var economyManager: EconomyManager
         private set
 
     override fun onEnable() {
@@ -95,6 +100,15 @@ class LandPlugin : JavaPlugin() {
         }
         server.pluginManager.registerEvents(NicknameListener(nicknameManager), this)
 
+        economyManager = EconomyManager(dataFolder, logger)
+        economyManager.load()
+
+        getCommand("money")?.let { command ->
+            val executor = EconomyCommand(economyManager)
+            command.setExecutor(executor)
+            command.tabCompleter = executor
+        }
+
         logger.info("BrockenreichLand enabled.")
     }
 
@@ -113,6 +127,9 @@ class LandPlugin : JavaPlugin() {
         }
         if (::nicknameManager.isInitialized) {
             nicknameManager.save()
+        }
+        if (::economyManager.isInitialized) {
+            economyManager.save()
         }
         logger.info("BrockenreichLand disabled.")
     }

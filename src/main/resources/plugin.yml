@@ -21,6 +21,9 @@ commands:
   nickname:
     description: Set a fixed display nickname instead of your Minecraft account name.
     usage: /<command> <새 닉네임|reset [플레이어]>
+  money:
+    description: Check balances and transfer the server's currency (ȼ).
+    usage: /<command> [balance <플레이어>|pay <플레이어> <금액>|give|take|set|top]
 permissions:
   brockenreichland.area:
     description: Manage land areas
@@ -36,4 +39,7 @@ permissions:
     default: op
   brockenreichland.nickname.admin:
     description: Reset another player's nickname
+    default: op
+  brockenreichland.economy.admin:
+    description: Give/take/set another player's balance
     default: op
