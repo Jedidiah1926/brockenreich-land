@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.nickname
 
+import com.brockenreich.landplugin.util.offlinePlayer
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.command.Command
@@ -61,10 +62,9 @@ class NicknameCommand(private val nicknameManager: NicknameManager) : CommandExe
                 return
             }
             val nickname = args[1]
-            @Suppress("DEPRECATION")
-            val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
-            if (nicknameManager.reset(offlinePlayer.uniqueId)) {
-                offlinePlayer.player?.let { NicknameListener.apply(it, null) }
+            val target = offlinePlayer(nickname)
+            if (nicknameManager.reset(target.uniqueId)) {
+                target.player?.let { NicknameListener.apply(it, null) }
                 sender.sendMessage("§a$nickname 님의 닉네임을 초기화했습니다.")
             } else {
                 sender.sendMessage("§c설정된 닉네임이 없습니다: $nickname")

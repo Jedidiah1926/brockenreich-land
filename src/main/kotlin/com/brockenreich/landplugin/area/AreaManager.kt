@@ -1,12 +1,12 @@
 package com.brockenreich.landplugin.area
 
 import com.brockenreich.landplugin.guild.GuildManager
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
-import java.util.UUID
 import java.util.logging.Logger
 
 class AreaManager(private val dataFolder: File, private val logger: Logger, private val guildManager: GuildManager) {
@@ -158,12 +158,8 @@ class AreaManager(private val dataFolder: File, private val logger: Logger, priv
             val area = Area(AreaTarget.Region(key), worldName)
             area.min = min
             area.max = max
-            area.members.addAll(
-                section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
-            area.admins.addAll(
-                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
+            area.members.addAll(section.getStringList("members").mapNotNull { parseUuidOrNull(it) })
+            area.admins.addAll(section.getStringList("admins").mapNotNull { parseUuidOrNull(it) })
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
@@ -176,12 +172,8 @@ class AreaManager(private val dataFolder: File, private val logger: Logger, priv
         yaml.getConfigurationSection("worlds")?.getKeys(false)?.forEach { key ->
             val section = yaml.getConfigurationSection("worlds.$key") ?: return@forEach
             val area = worldArea(key)
-            area.members.addAll(
-                section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
-            area.admins.addAll(
-                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
+            area.members.addAll(section.getStringList("members").mapNotNull { parseUuidOrNull(it) })
+            area.admins.addAll(section.getStringList("admins").mapNotNull { parseUuidOrNull(it) })
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
@@ -195,7 +187,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger, priv
         area.playerPermissions.clear()
         val playersSection = section.getConfigurationSection("playerPermissions") ?: return
         playersSection.getKeys(false).forEach { uuidKey ->
-            val uuid = runCatching { UUID.fromString(uuidKey) }.getOrNull() ?: return@forEach
+            val uuid = parseUuidOrNull(uuidKey) ?: return@forEach
             val perms = playersSection.getStringList(uuidKey).mapNotNull { AreaPermission.parse(it) }.toMutableSet()
             if (perms.isNotEmpty()) {
                 area.playerPermissions[uuid] = perms

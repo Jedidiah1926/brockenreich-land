@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.economy
 
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 import java.util.UUID
@@ -12,26 +13,26 @@ class EconomyManager(private val dataFolder: File, private val logger: Logger) {
 
     fun balance(uuid: UUID): Long = balances[uuid] ?: 0L
 
-    fun setBalance(uuid: UUID, amount: Long) {
+    fun setBalance(uuid: UUID, amount: Long, persist: Boolean = true) {
         if (amount <= 0) balances.remove(uuid) else balances[uuid] = amount
-        save()
+        if (persist) save()
     }
 
-    fun deposit(uuid: UUID, amount: Long) {
-        setBalance(uuid, balance(uuid) + amount)
+    fun deposit(uuid: UUID, amount: Long, persist: Boolean = true) {
+        setBalance(uuid, balance(uuid) + amount, persist)
     }
 
     /** Withdraws [amount] from [uuid] if they have enough; returns false (no change) otherwise. */
-    fun withdraw(uuid: UUID, amount: Long): Boolean {
+    fun withdraw(uuid: UUID, amount: Long, persist: Boolean = true): Boolean {
         val current = balance(uuid)
         if (current < amount) return false
-        setBalance(uuid, current - amount)
+        setBalance(uuid, current - amount, persist)
         return true
     }
 
     /** Moves [amount] from [from] to [to] if [from] has enough; returns false (no change) otherwise. */
     fun transfer(from: UUID, to: UUID, amount: Long): Boolean {
-        if (!withdraw(from, amount)) return false
+        if (!withdraw(from, amount, persist = false)) return false
         deposit(to, amount)
         return true
     }
@@ -44,7 +45,7 @@ class EconomyManager(private val dataFolder: File, private val logger: Logger) {
         if (!file.exists()) return
         val yaml = YamlConfiguration.loadConfiguration(file)
         yaml.getConfigurationSection("balances")?.getKeys(false)?.forEach { key ->
-            val uuid = runCatching { UUID.fromString(key) }.getOrNull() ?: return@forEach
+            val uuid = parseUuidOrNull(key) ?: return@forEach
             val amount = yaml.getLong("balances.$key")
             if (amount > 0) balances[uuid] = amount
         }

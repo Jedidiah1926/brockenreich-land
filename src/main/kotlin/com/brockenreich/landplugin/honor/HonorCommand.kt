@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.honor
 
+import com.brockenreich.landplugin.util.offlinePlayer
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.command.Command
@@ -109,9 +110,8 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             sender.sendMessage("§c존재하지 않는 칭호입니다: $id")
             return
         }
-        @Suppress("DEPRECATION")
-        val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
-        if (honorManager.grant(offlinePlayer.uniqueId, id)) {
+        val target = offlinePlayer(nickname)
+        if (honorManager.grant(target.uniqueId, id)) {
             sender.sendMessage("§a$nickname 님에게 '$id' 칭호를 부여했습니다.")
         } else {
             sender.sendMessage("§c이미 보유하고 있는 칭호입니다.")
@@ -125,9 +125,8 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
         }
         val nickname = args[1]
         val id = args[2]
-        @Suppress("DEPRECATION")
-        val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
-        if (honorManager.revoke(offlinePlayer.uniqueId, id)) {
+        val target = offlinePlayer(nickname)
+        if (honorManager.revoke(target.uniqueId, id)) {
             sender.sendMessage("§a$nickname 님에게서 '$id' 칭호를 회수했습니다.")
         } else {
             sender.sendMessage("§c보유하고 있지 않은 칭호입니다.")
@@ -209,16 +208,10 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
     }
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
-        // create's arg count is variable (<ID> <표시텍스트...> <HEX코드>), so from position 3 on we
-        // can't tell whether the player is still typing display text or the trailing HEX code -
-        // just hint the HEX palette at every such position rather than guessing.
-        if (args.size >= 3 && args[0].equals("create", ignoreCase = true)) {
-            return hexPresets.filter { it.startsWith(args.last(), ignoreCase = true) }
-        }
-        return when (args.size) {
-            1 -> listOf("create", "delete", "grant", "revoke", "equip", "unequip", "mine", "list", "info")
+        return when {
+            args.size == 1 -> listOf("create", "delete", "grant", "revoke", "equip", "unequip", "mine", "list", "info")
                 .filter { it.startsWith(args[0].lowercase()) }
-            2 -> when (args[0].lowercase()) {
+            args.size == 2 -> when (args[0].lowercase()) {
                 "delete", "info" ->
                     honorManager.honors().map { it.id }.filter { it.startsWith(args[1], ignoreCase = true) }
                 "grant", "revoke" ->
@@ -231,7 +224,12 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
                 }
                 else -> emptyList()
             }
-            3 -> when (args[0].lowercase()) {
+            // create's arg count is variable (<ID> <표시텍스트...> <HEX코드>), so from position 3 on
+            // we can't tell whether the player is still typing display text or the trailing HEX
+            // code - just hint the HEX palette at every such position rather than guessing.
+            args.size >= 3 && args[0].equals("create", ignoreCase = true) ->
+                hexPresets.filter { it.startsWith(args.last(), ignoreCase = true) }
+            args.size == 3 -> when (args[0].lowercase()) {
                 "grant", "revoke" ->
                     honorManager.honors().map { it.id }.filter { it.startsWith(args[2], ignoreCase = true) }
                 else -> emptyList()

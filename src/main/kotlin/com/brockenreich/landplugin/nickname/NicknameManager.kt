@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.nickname
 
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 import java.util.UUID
@@ -32,7 +33,7 @@ class NicknameManager(private val dataFolder: File, private val logger: Logger) 
         if (!file.exists()) return
         val yaml = YamlConfiguration.loadConfiguration(file)
         yaml.getConfigurationSection("nicknames")?.getKeys(false)?.forEach { key ->
-            val uuid = runCatching { UUID.fromString(key) }.getOrNull() ?: return@forEach
+            val uuid = parseUuidOrNull(key) ?: return@forEach
             val nickname = yaml.getString("nicknames.$key") ?: return@forEach
             nicknames[uuid] = nickname
         }

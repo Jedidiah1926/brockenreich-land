@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.guild
 
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 import java.util.UUID
@@ -36,15 +37,11 @@ class GuildManager(private val dataFolder: File, private val logger: Logger) {
         yaml.getConfigurationSection("guilds")?.getKeys(false)?.forEach { key ->
             val section = yaml.getConfigurationSection("guilds.$key") ?: return@forEach
             val leaderStr = section.getString("leader") ?: return@forEach
-            val leader = runCatching { UUID.fromString(leaderStr) }.getOrNull() ?: return@forEach
+            val leader = parseUuidOrNull(leaderStr) ?: return@forEach
             val name = section.getString("name") ?: key
             val guild = Guild(name, leader)
-            guild.officers.addAll(
-                section.getStringList("officers").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
-            guild.members.addAll(
-                section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
+            guild.officers.addAll(section.getStringList("officers").mapNotNull { parseUuidOrNull(it) })
+            guild.members.addAll(section.getStringList("members").mapNotNull { parseUuidOrNull(it) })
             guilds[key] = guild
         }
         logger.info("Loaded ${guilds.size} guild(s).")

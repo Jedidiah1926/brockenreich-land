@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.guild
 
+import com.brockenreich.landplugin.util.offlinePlayer
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -74,17 +75,13 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
 
     private fun handleInvite(sender: Player, args: Array<out String>) {
         val guild = requireGuild(sender, args.getOrNull(1)) ?: return
-        if (!guild.isOfficerOrAbove(sender.uniqueId)) {
-            sender.sendMessage("§c길드장 또는 간부만 초대할 수 있습니다.")
-            return
-        }
+        if (!requireOfficerOrAbove(sender, guild, "초대")) return
         val nickname = args.getOrNull(2)
         if (nickname == null) {
             sender.sendMessage("§c사용법: /guild invite ${guild.name} <닉네임>")
             return
         }
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
         if (guild.isMember(target.uniqueId)) {
             sender.sendMessage("§c이미 길드원입니다.")
             return
@@ -96,17 +93,13 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
 
     private fun handleKick(sender: Player, args: Array<out String>) {
         val guild = requireGuild(sender, args.getOrNull(1)) ?: return
-        if (!guild.isOfficerOrAbove(sender.uniqueId)) {
-            sender.sendMessage("§c길드장 또는 간부만 추방할 수 있습니다.")
-            return
-        }
+        if (!requireOfficerOrAbove(sender, guild, "추방")) return
         val nickname = args.getOrNull(2)
         if (nickname == null) {
             sender.sendMessage("§c사용법: /guild kick ${guild.name} <닉네임>")
             return
         }
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
         if (target.uniqueId == guild.leader) {
             sender.sendMessage("§c길드장은 추방할 수 없습니다.")
             return
@@ -123,17 +116,13 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
 
     private fun handlePromote(sender: Player, args: Array<out String>) {
         val guild = requireGuild(sender, args.getOrNull(1)) ?: return
-        if (sender.uniqueId != guild.leader) {
-            sender.sendMessage("§c길드장만 승급시킬 수 있습니다.")
-            return
-        }
+        if (!requireLeader(sender, guild, "승급시킬")) return
         val nickname = args.getOrNull(2)
         if (nickname == null) {
             sender.sendMessage("§c사용법: /guild promote ${guild.name} <닉네임>")
             return
         }
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
         if (!guild.members.contains(target.uniqueId)) {
             sender.sendMessage("§c일반 길드원만 간부로 승급할 수 있습니다.")
             return
@@ -146,17 +135,13 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
 
     private fun handleDemote(sender: Player, args: Array<out String>) {
         val guild = requireGuild(sender, args.getOrNull(1)) ?: return
-        if (sender.uniqueId != guild.leader) {
-            sender.sendMessage("§c길드장만 강등시킬 수 있습니다.")
-            return
-        }
+        if (!requireLeader(sender, guild, "강등시킬")) return
         val nickname = args.getOrNull(2)
         if (nickname == null) {
             sender.sendMessage("§c사용법: /guild demote ${guild.name} <닉네임>")
             return
         }
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
         if (!guild.officers.contains(target.uniqueId)) {
             sender.sendMessage("§c간부만 강등할 수 있습니다.")
             return
@@ -185,11 +170,8 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
 
     private fun handleInfo(sender: Player, args: Array<out String>) {
         val guild = requireGuild(sender, args.getOrNull(1)) ?: return
-        @Suppress("DEPRECATION")
         val leaderName = Bukkit.getOfflinePlayer(guild.leader).name ?: guild.leader.toString()
-        @Suppress("DEPRECATION")
         val officerNames = guild.officers.mapNotNull { Bukkit.getOfflinePlayer(it).name }
-        @Suppress("DEPRECATION")
         val memberNames = guild.members.mapNotNull { Bukkit.getOfflinePlayer(it).name }
 
         sender.sendMessage("§e=== [${guild.name}] 길드 정보 ===")
@@ -209,6 +191,20 @@ class GuildCommand(private val guildManager: GuildManager) : CommandExecutor, Ta
             sender.sendMessage("§c존재하지 않는 길드입니다.")
         }
         return guild
+    }
+
+    /** True (after messaging [sender]) only if they're [guild]'s leader or an officer. */
+    private fun requireOfficerOrAbove(sender: Player, guild: Guild, action: String): Boolean {
+        if (guild.isOfficerOrAbove(sender.uniqueId)) return true
+        sender.sendMessage("§c길드장 또는 간부만 ${action}할 수 있습니다.")
+        return false
+    }
+
+    /** True (after messaging [sender]) only if they're [guild]'s leader. */
+    private fun requireLeader(sender: Player, guild: Guild, action: String): Boolean {
+        if (sender.uniqueId == guild.leader) return true
+        sender.sendMessage("§c길드장만 ${action}할 수 있습니다.")
+        return false
     }
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {

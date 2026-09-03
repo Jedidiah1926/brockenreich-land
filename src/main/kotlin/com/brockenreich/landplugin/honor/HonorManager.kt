@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.honor
 
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
 import java.util.UUID
@@ -90,7 +91,7 @@ class HonorManager(private val dataFolder: File, private val logger: Logger) {
         }
 
         yaml.getConfigurationSection("players")?.getKeys(false)?.forEach { key ->
-            val uuid = runCatching { UUID.fromString(key) }.getOrNull() ?: return@forEach
+            val uuid = parseUuidOrNull(key) ?: return@forEach
             val section = yaml.getConfigurationSection("players.$key") ?: return@forEach
             val grantedIds = section.getStringList("granted").map { it.lowercase() }.toMutableSet()
             if (grantedIds.isNotEmpty()) granted[uuid] = grantedIds

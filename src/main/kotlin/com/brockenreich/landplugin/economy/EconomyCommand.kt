@@ -1,11 +1,13 @@
 package com.brockenreich.landplugin.economy
 
+import com.brockenreich.landplugin.util.offlinePlayer
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
+import java.util.UUID
 
 class EconomyCommand(private val economyManager: EconomyManager) : CommandExecutor, TabCompleter {
 
@@ -62,9 +64,8 @@ class EconomyCommand(private val economyManager: EconomyManager) : CommandExecut
             sender.sendMessage("§e내 잔액: ${Currency.format(economyManager.balance(sender.uniqueId))}")
             return
         }
-        @Suppress("DEPRECATION")
-        val offlinePlayer = Bukkit.getOfflinePlayer(target)
-        sender.sendMessage("§e$target 님의 잔액: ${Currency.format(economyManager.balance(offlinePlayer.uniqueId))}")
+        val offlineTarget = offlinePlayer(target)
+        sender.sendMessage("§e$target 님의 잔액: ${Currency.format(economyManager.balance(offlineTarget.uniqueId))}")
     }
 
     private fun handlePay(sender: CommandSender, args: Array<out String>) {
@@ -78,8 +79,7 @@ class EconomyCommand(private val economyManager: EconomyManager) : CommandExecut
         }
         val targetName = args[1]
         val amount = parseAmount(sender, args[2]) ?: return
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(targetName)
+        val target = offlinePlayer(targetName)
         if (target.uniqueId == sender.uniqueId) {
             sender.sendMessage("§c자기 자신에게는 송금할 수 없습니다.")
             return
@@ -93,33 +93,45 @@ class EconomyCommand(private val economyManager: EconomyManager) : CommandExecut
         }
     }
 
-    private fun handleGive(sender: CommandSender, args: Array<out String>) {
+    /** Shared shape of /money give and /money take: usage check, amount parse, apply, report. */
+    private fun handleGiveOrTake(
+        sender: CommandSender,
+        args: Array<out String>,
+        usage: String,
+        apply: (target: UUID, amount: Long) -> Boolean,
+        successMessage: (targetName: String, formatted: String) -> String,
+        failureMessage: String,
+    ) {
         if (args.size < 3) {
-            sender.sendMessage("§c사용법: /money give <플레이어> <금액>")
+            sender.sendMessage("§c사용법: $usage")
             return
         }
         val targetName = args[1]
         val amount = parseAmount(sender, args[2]) ?: return
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(targetName)
-        economyManager.deposit(target.uniqueId, amount)
-        sender.sendMessage("§a$targetName 님에게 ${Currency.format(amount)} 지급했습니다.")
+        val target = offlinePlayer(targetName)
+        if (apply(target.uniqueId, amount)) {
+            sender.sendMessage(successMessage(targetName, Currency.format(amount)))
+        } else {
+            sender.sendMessage(failureMessage)
+        }
+    }
+
+    private fun handleGive(sender: CommandSender, args: Array<out String>) {
+        handleGiveOrTake(
+            sender, args, "/money give <플레이어> <금액>",
+            apply = { uuid, amount -> economyManager.deposit(uuid, amount); true },
+            successMessage = { name, formatted -> "§a$name 님에게 $formatted 지급했습니다." },
+            failureMessage = "",
+        )
     }
 
     private fun handleTake(sender: CommandSender, args: Array<out String>) {
-        if (args.size < 3) {
-            sender.sendMessage("§c사용법: /money take <플레이어> <금액>")
-            return
-        }
-        val targetName = args[1]
-        val amount = parseAmount(sender, args[2]) ?: return
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(targetName)
-        if (economyManager.withdraw(target.uniqueId, amount)) {
-            sender.sendMessage("§a$targetName 님에게서 ${Currency.format(amount)} 회수했습니다.")
-        } else {
-            sender.sendMessage("§c대상의 잔액이 부족합니다.")
-        }
+        handleGiveOrTake(
+            sender, args, "/money take <플레이어> <금액>",
+            apply = { uuid, amount -> economyManager.withdraw(uuid, amount) },
+            successMessage = { name, formatted -> "§a$name 님에게서 $formatted 회수했습니다." },
+            failureMessage = "§c대상의 잔액이 부족합니다.",
+        )
     }
 
     private fun handleSet(sender: CommandSender, args: Array<out String>) {
@@ -133,8 +145,7 @@ class EconomyCommand(private val economyManager: EconomyManager) : CommandExecut
             sender.sendMessage("§c금액은 0 이상의 정수여야 합니다: ${args[2]}")
             return
         }
-        @Suppress("DEPRECATION")
-        val target = Bukkit.getOfflinePlayer(targetName)
+        val target = offlinePlayer(targetName)
         economyManager.setBalance(target.uniqueId, amount)
         sender.sendMessage("§a$targetName 님의 잔액을 ${Currency.format(amount)} (으)로 설정했습니다.")
     }
@@ -148,7 +159,6 @@ class EconomyCommand(private val economyManager: EconomyManager) : CommandExecut
         }
         sender.sendMessage("§e--- 잔액 순위 (상위 $limit) ---")
         top.forEachIndexed { index, (uuid, amount) ->
-            @Suppress("DEPRECATION")
             val name = Bukkit.getOfflinePlayer(uuid).name ?: uuid.toString()
             sender.sendMessage("§7${index + 1}. $name - ${Currency.format(amount)}")
         }

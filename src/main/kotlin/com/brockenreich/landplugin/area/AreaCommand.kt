@@ -1,6 +1,7 @@
 package com.brockenreich.landplugin.area
 
 import com.brockenreich.landplugin.guild.GuildManager
+import com.brockenreich.landplugin.util.offlinePlayer
 import com.sk89q.worldedit.IncompleteRegionException
 import com.sk89q.worldedit.bukkit.BukkitAdapter
 import com.sk89q.worldedit.bukkit.WorldEditPlugin
@@ -237,10 +238,8 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
         if (min != null && max != null) {
             sender.sendMessage("§7범위: ${fmt(min)} ~ ${fmt(max)}")
         }
-        @Suppress("DEPRECATION")
         val memberNames = area.members.mapNotNull { Bukkit.getOfflinePlayer(it).name }
         sender.sendMessage("§7멤버: ${if (memberNames.isEmpty()) "없음" else memberNames.joinToString(", ")}")
-        @Suppress("DEPRECATION")
         val adminNames = area.admins.mapNotNull { Bukkit.getOfflinePlayer(it).name }
         sender.sendMessage("§7admin: ${if (adminNames.isEmpty()) "없음" else adminNames.joinToString(", ")}")
         if (area.parents.isNotEmpty()) {
@@ -254,7 +253,6 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
             sender.sendMessage("§7개별 허용 권한:")
             area.playerPermissions.forEach { (uuid, perms) ->
                 if (perms.isEmpty()) return@forEach
-                @Suppress("DEPRECATION")
                 val name = Bukkit.getOfflinePlayer(uuid).name ?: uuid.toString()
                 sender.sendMessage("§7 - $name: ${perms.joinToString(", ") { it.label }}")
             }
@@ -370,16 +368,15 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
         }
         val action = args[3].lowercase()
         val nickname = args[5]
-        @Suppress("DEPRECATION")
-        val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
 
         when (action) {
             "add" -> {
-                area.admins.add(offlinePlayer.uniqueId)
+                area.admins.add(target.uniqueId)
                 sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 admin으로 추가했습니다.")
             }
             "remove" -> {
-                area.admins.remove(offlinePlayer.uniqueId)
+                area.admins.remove(target.uniqueId)
                 sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 admin에서 제거했습니다.")
             }
             else -> {
@@ -475,16 +472,15 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
         }
         val action = args[3].lowercase()
         val nickname = args[5]
-        @Suppress("DEPRECATION")
-        val offlinePlayer = Bukkit.getOfflinePlayer(nickname)
+        val target = offlinePlayer(nickname)
 
         when (action) {
             "add" -> {
-                area.members.add(offlinePlayer.uniqueId)
+                area.members.add(target.uniqueId)
                 sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 멤버로 추가했습니다.")
             }
             "remove" -> {
-                area.members.remove(offlinePlayer.uniqueId)
+                area.members.remove(target.uniqueId)
                 sender.sendMessage("§a$nickname 을(를) ${area.target.key()} 의 멤버에서 제거했습니다.")
             }
             else -> {
@@ -524,11 +520,10 @@ class AreaCommand(private val areaManager: AreaManager, private val guildManager
                 "remove" -> area.permissions.remove(permission)
             }
         } else {
-            @Suppress("DEPRECATION")
-            val offlinePlayer = Bukkit.getOfflinePlayer(subject)
+            val target = offlinePlayer(subject)
             when (action) {
-                "add" -> area.playerPermissions.getOrPut(offlinePlayer.uniqueId) { mutableSetOf() }.add(permission)
-                "remove" -> area.playerPermissions[offlinePlayer.uniqueId]?.remove(permission)
+                "add" -> area.playerPermissions.getOrPut(target.uniqueId) { mutableSetOf() }.add(permission)
+                "remove" -> area.playerPermissions[target.uniqueId]?.remove(permission)
             }
         }
 
