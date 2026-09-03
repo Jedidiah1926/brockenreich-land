@@ -15,6 +15,9 @@ commands:
   guild:
     description: Manage player-run guilds, which can own land.
     usage: /<command> <create|disband|invite|kick|promote|demote|leave|info|list> ...
+  title:
+    description: Manage equippable titles shown before a player's name in chat.
+    usage: /<command> <create|delete|grant|revoke|equip|unequip|mine|list|info> ...
 permissions:
   brockenreichland.area:
     description: Manage land areas
@@ -24,4 +27,7 @@ permissions:
     default: op
   brockenreichland.farm.admin:
     description: Override farm crop growth times for testing
+    default: op
+  brockenreichland.title.admin:
+    description: Create/delete titles and grant/revoke them from players
     default: op

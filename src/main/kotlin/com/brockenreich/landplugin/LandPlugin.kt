@@ -12,6 +12,9 @@ import com.brockenreich.landplugin.farm.FarmListener
 import com.brockenreich.landplugin.farm.FarmManager
 import com.brockenreich.landplugin.guild.GuildCommand
 import com.brockenreich.landplugin.guild.GuildManager
+import com.brockenreich.landplugin.title.TitleChatListener
+import com.brockenreich.landplugin.title.TitleCommand
+import com.brockenreich.landplugin.title.TitleManager
 import org.bukkit.plugin.java.JavaPlugin
 
 class LandPlugin : JavaPlugin() {
@@ -23,6 +26,9 @@ class LandPlugin : JavaPlugin() {
         private set
 
     lateinit var guildManager: GuildManager
+        private set
+
+    lateinit var titleManager: TitleManager
         private set
 
     override fun onEnable() {
@@ -63,6 +69,16 @@ class LandPlugin : JavaPlugin() {
         }
         server.pluginManager.registerEvents(FarmListener(farmManager, farmItems), this)
 
+        titleManager = TitleManager(dataFolder, logger)
+        titleManager.load()
+
+        getCommand("title")?.let { command ->
+            val executor = TitleCommand(titleManager)
+            command.setExecutor(executor)
+            command.tabCompleter = executor
+        }
+        server.pluginManager.registerEvents(TitleChatListener(titleManager), this)
+
         logger.info("BrockenreichLand enabled.")
     }
 
@@ -75,6 +91,9 @@ class LandPlugin : JavaPlugin() {
         }
         if (::guildManager.isInitialized) {
             guildManager.save()
+        }
+        if (::titleManager.isInitialized) {
+            titleManager.save()
         }
         logger.info("BrockenreichLand disabled.")
     }
