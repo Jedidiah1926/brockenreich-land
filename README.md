@@ -226,12 +226,14 @@ parent 예시:
 작동 — 자세한 건 위 구역 관리 문단의 admin/parent 설명 참고). 길드에서 간부 자격을 잃으면 그 구역의 admin
 자격도 즉시 같이 빠집니다. 설정은 `plugins/BrockenreichLand/guilds.yml` 에 저장됩니다.
 
-## 칭호(Title) 시스템
+## 칭호(Honor) 시스템
 
 OP가 만들어서 플레이어에게 부여하는 칭호를 채팅에 표시하는 기능입니다. **현재는 채팅에만 적용됩니다**
-(닉네임 위 태그, 탭리스트 등은 아직 반영되지 않음).
+(닉네임 위 태그, 탭리스트 등은 아직 반영되지 않음). 명령어는 바닐라 `/title` 명령(액션바/타이틀 표시)과
+이름이 겹치지 않도록 `/honor` 를 씁니다.
 
-- **칭호 정의**: OP가 ID와 표시 텍스트(색상 코드 `&` 사용 가능)로 칭호를 만듭니다.
+- **칭호 정의**: OP가 ID, 표시 텍스트(색상 코드 `&` 사용 가능), HEX 색상 코드로 칭호를 만듭니다. HEX
+  코드가 표시 텍스트 전체의 기본 색이 됩니다.
 - **부여**: OP가 특정 플레이어에게 칭호를 부여(grant)해야 그 플레이어가 장착할 수 있습니다. 부여받지 않은
   칭호는 장착 불가.
 - **장착**: 부여받은 칭호 중 플레이어가 직접 하나를 골라 장착(equip)합니다. 장착한 칭호가 있으면 채팅
@@ -241,18 +243,37 @@ OP가 만들어서 플레이어에게 부여하는 칭호를 채팅에 표시하
 ### 명령어
 
 ```
-/title create <ID> <표시텍스트...>     # OP 전용, & 로 색상 코드 사용 가능
-/title delete <ID>                     # OP 전용
-/title grant <닉네임> <ID>             # OP 전용
-/title revoke <닉네임> <ID>            # OP 전용
-/title equip <ID>                      # 본인이 부여받은 칭호만 장착 가능
-/title unequip
-/title mine                            # 내가 보유한 칭호 목록 (장착 중인 것 표시)
-/title list                            # 서버에 등록된 전체 칭호 목록
-/title info <ID>
+/honor create <ID> <표시텍스트...> <HEX코드>   # OP 전용, 표시텍스트에 & 색상 코드도 사용 가능 (예: #FFAA00)
+/honor delete <ID>                              # OP 전용
+/honor grant <닉네임> <ID>                      # OP 전용
+/honor revoke <닉네임> <ID>                     # OP 전용
+/honor equip <ID>                               # 본인이 부여받은 칭호만 장착 가능
+/honor unequip
+/honor mine                                     # 내가 보유한 칭호 목록 (장착 중인 것 표시)
+/honor list                                     # 서버에 등록된 전체 칭호 목록
+/honor info <ID>
 ```
 
-설정은 `plugins/BrockenreichLand/titles.yml` 에 저장됩니다.
+설정은 `plugins/BrockenreichLand/honors.yml` 에 저장됩니다.
+
+## 닉네임(고정닉) 시스템
+
+마인크래프트 계정 이름 대신 원하는 표시 이름을 채팅/탭리스트에 쓸 수 있는 기능입니다.
+
+- 누구나 `/nickname <새 닉네임>` 으로 스스로 설정 가능 (공백 없이 한 단어, 2~16자, `&` 색상 코드 사용 가능).
+- 이미 다른 플레이어가 쓰고 있는 닉네임(대소문자 무관 동일 문자열)은 설정할 수 없습니다.
+- `/nickname reset` 으로 본인이 언제든 원래 계정 이름으로 되돌릴 수 있습니다.
+- `/nickname reset <플레이어>` 는 OP 전용 - 문제가 되는 닉네임을 강제로 초기화할 때 사용.
+
+### 명령어
+
+```
+/nickname <새 닉네임>
+/nickname reset
+/nickname reset <플레이어>   # OP 전용
+```
+
+설정은 `plugins/BrockenreichLand/nicknames.yml` 에 저장됩니다.
 
 ## 농장(Farm) 시스템
 

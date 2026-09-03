@@ -12,9 +12,12 @@ import com.brockenreich.landplugin.farm.FarmListener
 import com.brockenreich.landplugin.farm.FarmManager
 import com.brockenreich.landplugin.guild.GuildCommand
 import com.brockenreich.landplugin.guild.GuildManager
-import com.brockenreich.landplugin.title.TitleChatListener
-import com.brockenreich.landplugin.title.TitleCommand
-import com.brockenreich.landplugin.title.TitleManager
+import com.brockenreich.landplugin.honor.HonorChatListener
+import com.brockenreich.landplugin.honor.HonorCommand
+import com.brockenreich.landplugin.honor.HonorManager
+import com.brockenreich.landplugin.nickname.NicknameCommand
+import com.brockenreich.landplugin.nickname.NicknameListener
+import com.brockenreich.landplugin.nickname.NicknameManager
 import org.bukkit.plugin.java.JavaPlugin
 
 class LandPlugin : JavaPlugin() {
@@ -28,7 +31,10 @@ class LandPlugin : JavaPlugin() {
     lateinit var guildManager: GuildManager
         private set
 
-    lateinit var titleManager: TitleManager
+    lateinit var honorManager: HonorManager
+        private set
+
+    lateinit var nicknameManager: NicknameManager
         private set
 
     override fun onEnable() {
@@ -69,15 +75,25 @@ class LandPlugin : JavaPlugin() {
         }
         server.pluginManager.registerEvents(FarmListener(farmManager, farmItems), this)
 
-        titleManager = TitleManager(dataFolder, logger)
-        titleManager.load()
+        honorManager = HonorManager(dataFolder, logger)
+        honorManager.load()
 
-        getCommand("title")?.let { command ->
-            val executor = TitleCommand(titleManager)
+        getCommand("honor")?.let { command ->
+            val executor = HonorCommand(honorManager)
             command.setExecutor(executor)
             command.tabCompleter = executor
         }
-        server.pluginManager.registerEvents(TitleChatListener(titleManager), this)
+        server.pluginManager.registerEvents(HonorChatListener(honorManager), this)
+
+        nicknameManager = NicknameManager(dataFolder, logger)
+        nicknameManager.load()
+
+        getCommand("nickname")?.let { command ->
+            val executor = NicknameCommand(nicknameManager)
+            command.setExecutor(executor)
+            command.tabCompleter = executor
+        }
+        server.pluginManager.registerEvents(NicknameListener(nicknameManager), this)
 
         logger.info("BrockenreichLand enabled.")
     }
@@ -92,8 +108,11 @@ class LandPlugin : JavaPlugin() {
         if (::guildManager.isInitialized) {
             guildManager.save()
         }
-        if (::titleManager.isInitialized) {
-            titleManager.save()
+        if (::honorManager.isInitialized) {
+            honorManager.save()
+        }
+        if (::nicknameManager.isInitialized) {
+            nicknameManager.save()
         }
         logger.info("BrockenreichLand disabled.")
     }
