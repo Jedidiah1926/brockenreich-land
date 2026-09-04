@@ -205,6 +205,9 @@ class FarmListener(private val farmManager: FarmManager, private val farmItems: 
         if (player.gameMode != GameMode.CREATIVE) {
             item.amount -= 1
         }
+        // This bypasses BlockPlaceEvent entirely (see the comment above), so unlike every other
+        // farm crop it has to be registered with the timer by hand here - onPlace() never sees it.
+        farmManager.plant(target, FarmCropType.SUGAR_CANE)
     }
 
     // Sugar cane must survive without adjacent water on this server - cancelling its physics

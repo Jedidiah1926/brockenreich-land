@@ -189,8 +189,13 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
                 if (entry.type in HEIGHT_TYPES) {
                     // Never "finishes" - grow one more segment if there's room, then reschedule
                     // for another interval indefinitely (a shared community plant keeps regrowing
-                    // for as long as its base survives).
-                    growOneHeightSegment(block, entry.type)
+                    // for as long as its base survives). Unlike the one-shot sapling/mushroom
+                    // failure below, a blocked or capped attempt here is never final - it just
+                    // tries again next interval, forever. The smoke particle on a blocked attempt
+                    // is purely so that's visible in-game instead of silently rescheduling.
+                    if (!growOneHeightSegment(block, entry.type)) {
+                        failGrowth(block)
+                    }
                     val duration = durationFor(entry.type)
                     if (duration == null) {
                         iterator.remove()
@@ -259,9 +264,10 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
     // application) - neither gives the exact "one segment per interval" the fixed timer promises,
     // so this places the new segment directly instead of simulating bonemeal like forceFullyGrown
     // does for everything else.
-    private fun growOneHeightSegment(base: Block, type: FarmCropType) {
-        val material = HEIGHT_MATERIAL[type] ?: return
-        val maxHeight = HEIGHT_MAX[type] ?: return
+    /** True if a new segment was actually placed; false if capped at [HEIGHT_MAX] or blocked above. */
+    private fun growOneHeightSegment(base: Block, type: FarmCropType): Boolean {
+        val material = HEIGHT_MATERIAL[type] ?: return false
+        val maxHeight = HEIGHT_MAX[type] ?: return false
 
         var top = base
         var height = 1
@@ -269,11 +275,12 @@ class FarmManager(private val plugin: Plugin, private val dataFolder: File) {
             top = top.getRelative(BlockFace.UP)
             height++
         }
-        if (height >= maxHeight) return
+        if (height >= maxHeight) return false
 
         val above = top.getRelative(BlockFace.UP)
-        if (!above.type.isAir) return
+        if (!above.type.isAir) return false
         above.type = material
+        return true
     }
 
     private fun celebrateGrowth(block: Block) {
