@@ -6,6 +6,8 @@ import com.brockenreich.landplugin.area.AreaManager
 import com.brockenreich.landplugin.area.AreaMoveListener
 import com.brockenreich.landplugin.area.AreaPlayerGuard
 import com.brockenreich.landplugin.area.AreaProtectionListener
+import com.brockenreich.landplugin.display.PlayerDisplayListener
+import com.brockenreich.landplugin.display.PlayerDisplayManager
 import com.brockenreich.landplugin.economy.EconomyCommand
 import com.brockenreich.landplugin.economy.EconomyManager
 import com.brockenreich.landplugin.farm.FarmCommand
@@ -18,7 +20,6 @@ import com.brockenreich.landplugin.honor.HonorChatListener
 import com.brockenreich.landplugin.honor.HonorCommand
 import com.brockenreich.landplugin.honor.HonorManager
 import com.brockenreich.landplugin.nickname.NicknameCommand
-import com.brockenreich.landplugin.nickname.NicknameListener
 import com.brockenreich.landplugin.nickname.NicknameManager
 import org.bukkit.plugin.java.JavaPlugin
 
@@ -83,22 +84,24 @@ class LandPlugin : JavaPlugin() {
         honorManager = HonorManager(dataFolder, logger)
         honorManager.load()
 
+        nicknameManager = NicknameManager(dataFolder, logger)
+        nicknameManager.load()
+
+        val displayManager = PlayerDisplayManager(honorManager, nicknameManager)
+
         getCommand("honor")?.let { command ->
-            val executor = HonorCommand(honorManager)
+            val executor = HonorCommand(honorManager, displayManager)
             command.setExecutor(executor)
             command.tabCompleter = executor
         }
         server.pluginManager.registerEvents(HonorChatListener(honorManager), this)
 
-        nicknameManager = NicknameManager(dataFolder, logger)
-        nicknameManager.load()
-
         getCommand("nickname")?.let { command ->
-            val executor = NicknameCommand(nicknameManager)
+            val executor = NicknameCommand(nicknameManager, displayManager)
             command.setExecutor(executor)
             command.tabCompleter = executor
         }
-        server.pluginManager.registerEvents(NicknameListener(nicknameManager), this)
+        server.pluginManager.registerEvents(PlayerDisplayListener(displayManager), this)
 
         economyManager = EconomyManager(dataFolder, logger)
         economyManager.load()

@@ -6,6 +6,7 @@ import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Directional
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Fireball
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -53,6 +54,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
+import org.bukkit.projectiles.BlockProjectileSource
 
 /** Enforces the non-entrance/exit AreaPermission flags against the matching Bukkit events. */
 class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
@@ -256,6 +258,20 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (fromArea !== toArea &&
             (fromArea.protections.contains(AreaProtection.DISPENSER) || toArea.protections.contains(AreaProtection.DISPENSER))
         ) {
+            event.isCancelled = true
+        }
+    }
+
+    // A fireball (fire charge -> SmallFireball, and any other Fireball subtype) can fly far past
+    // the one-block crossing check above before it ignites or explodes somewhere else entirely, so
+    // a dispenser sitting in a DISPENSER-protected area is blocked from launching one at all here,
+    // regardless of which way it's facing - the block-place-style neighbor check above isn't
+    // enough to contain something that travels.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onDispenserFireball(event: ProjectileLaunchEvent) {
+        val fireball = event.entity as? Fireball ?: return
+        val source = fireball.shooter as? BlockProjectileSource ?: return
+        if (areaManager.areaAt(source.block.location).protections.contains(AreaProtection.DISPENSER)) {
             event.isCancelled = true
         }
     }
@@ -530,11 +546,13 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Any entity (not just players, who are separately gated by the pickupItem permission above)
-    // picking up a dropped item while standing in an ENTITY_PICKUP_ITEM-protected area is blocked -
-    // covers mobs like foxes/villagers scooping up drops inside a protected area.
+    // Non-player entities (mobs like foxes/villagers scooping up drops) picking up an item while
+    // standing in an ENTITY_PICKUP_ITEM-protected area is blocked. Players are excluded here - they're
+    // already separately gated by the pickupItem AreaPermission above, which follows the permission
+    // model (member/grant based), not this structural, cause-agnostic protection.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onEntityPickupItemProtection(event: EntityPickupItemEvent) {
+        if (event.entity is Player) return
         if (areaManager.areaAt(event.item.location).protections.contains(AreaProtection.ENTITY_PICKUP_ITEM)) {
             event.isCancelled = true
         }

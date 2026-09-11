@@ -12,6 +12,8 @@ class HonorManager(private val dataFolder: File, private val logger: Logger) {
     private val honors: MutableMap<String, Honor> = mutableMapOf()
     private val granted: MutableMap<UUID, MutableSet<String>> = mutableMapOf()
     private val equipped: MutableMap<UUID, String> = mutableMapOf()
+    /** Players an OP has force-set via /honor force - they can't equip/unequip themselves while locked. */
+    private val locked: MutableSet<UUID> = mutableSetOf()
 
     fun honor(id: String): Honor? = honors[id.lowercase()]
 
@@ -76,10 +78,18 @@ class HonorManager(private val dataFolder: File, private val logger: Logger) {
         return removed
     }
 
+    fun isLocked(uuid: UUID): Boolean = locked.contains(uuid)
+
+    fun setLocked(uuid: UUID, value: Boolean) {
+        if (value) locked.add(uuid) else locked.remove(uuid)
+        save()
+    }
+
     fun load() {
         honors.clear()
         granted.clear()
         equipped.clear()
+        locked.clear()
         if (!file.exists()) return
         val yaml = YamlConfiguration.loadConfiguration(file)
 
@@ -98,6 +108,7 @@ class HonorManager(private val dataFolder: File, private val logger: Logger) {
             section.getString("equipped")?.let { equippedId ->
                 if (grantedIds.contains(equippedId.lowercase())) equipped[uuid] = equippedId.lowercase()
             }
+            if (section.getBoolean("locked")) locked.add(uuid)
         }
 
         logger.info("Loaded ${honors.size} honor(s).")
@@ -109,11 +120,12 @@ class HonorManager(private val dataFolder: File, private val logger: Logger) {
             yaml.set("honors.$key.id", honor.id)
             yaml.set("honors.$key.display", honor.display)
         }
-        val uuids = granted.keys + equipped.keys
+        val uuids = granted.keys + equipped.keys + locked
         uuids.forEach { uuid ->
             val base = "players.$uuid"
             granted[uuid]?.let { yaml.set("$base.granted", it.toList()) }
             equipped[uuid]?.let { yaml.set("$base.equipped", it) }
+            if (locked.contains(uuid)) yaml.set("$base.locked", true)
         }
         dataFolder.mkdirs()
         yaml.save(file)

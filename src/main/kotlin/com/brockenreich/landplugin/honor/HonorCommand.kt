@@ -1,5 +1,6 @@
 package com.brockenreich.landplugin.honor
 
+import com.brockenreich.landplugin.display.PlayerDisplayManager
 import com.brockenreich.landplugin.util.offlinePlayer
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
@@ -10,7 +11,10 @@ import org.bukkit.command.TabCompleter
 import org.bukkit.entity.Player
 import net.md_5.bungee.api.ChatColor as BungeeChatColor
 
-class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, TabCompleter {
+class HonorCommand(
+    private val honorManager: HonorManager,
+    private val displayManager: PlayerDisplayManager,
+) : CommandExecutor, TabCompleter {
 
     // Just a hint palette for the HEX argument's tab-completion below - any valid #RRGGBB works,
     // these aren't validated against or otherwise special.
@@ -29,6 +33,8 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             "delete" -> if (requireOp(sender)) handleDelete(sender, args)
             "grant" -> if (requireOp(sender)) handleGrant(sender, args)
             "revoke" -> if (requireOp(sender)) handleRevoke(sender, args)
+            "force" -> if (requireOp(sender)) handleForce(sender, args)
+            "unforce" -> if (requireOp(sender)) handleUnforce(sender, args)
             "equip" -> handleEquip(sender, args)
             "unequip" -> handleUnequip(sender)
             "mine" -> handleMine(sender)
@@ -51,7 +57,9 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
         sender.sendMessage("§e/honor delete <ID> §7- OP 전용")
         sender.sendMessage("§e/honor grant <닉네임> <ID> §7- OP 전용")
         sender.sendMessage("§e/honor revoke <닉네임> <ID> §7- OP 전용")
-        sender.sendMessage("§e/honor equip <ID> §7- 보유한 칭호를 채팅에 표시")
+        sender.sendMessage("§e/honor force <닉네임> <ID|none> §7- OP 전용, 강제 착용시키고 본인이 못 바꾸게 고정")
+        sender.sendMessage("§e/honor unforce <닉네임> §7- OP 전용, 고정 해제")
+        sender.sendMessage("§e/honor equip <ID> §7- 보유한 칭호를 채팅/탭리스트/이름표에 표시")
         sender.sendMessage("§e/honor unequip")
         sender.sendMessage("§e/honor mine §7- 내가 보유한 칭호 목록")
         sender.sendMessage("§e/honor list §7- 서버에 등록된 전체 칭호 목록")
@@ -92,7 +100,11 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             return
         }
         val id = args[1]
+        // Capture who's wearing it before it's gone, so their tab-list/nametag can be redrawn
+        // without it once the deletion auto-unequips them internally.
+        val affected = Bukkit.getOnlinePlayers().filter { honorManager.equipped(it.uniqueId)?.id.equals(id, ignoreCase = true) }
         if (honorManager.deleteHonor(id)) {
+            affected.forEach { displayManager.refresh(it) }
             sender.sendMessage("§a칭호 '$id' 을(를) 삭제했습니다.")
         } else {
             sender.sendMessage("§c존재하지 않는 칭호입니다: $id")
@@ -127,15 +139,59 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
         val id = args[2]
         val target = offlinePlayer(nickname)
         if (honorManager.revoke(target.uniqueId, id)) {
+            target.player?.let { displayManager.refresh(it) }
             sender.sendMessage("§a$nickname 님에게서 '$id' 칭호를 회수했습니다.")
         } else {
             sender.sendMessage("§c보유하고 있지 않은 칭호입니다.")
         }
     }
 
+    private fun handleForce(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 3) {
+            sender.sendMessage("§c사용법: /honor force <닉네임> <ID|none>")
+            return
+        }
+        val nickname = args[1]
+        val target = offlinePlayer(nickname)
+        val idOrNone = args[2]
+
+        if (idOrNone.equals("none", ignoreCase = true)) {
+            honorManager.unequip(target.uniqueId)
+            honorManager.setLocked(target.uniqueId, true)
+            target.player?.let { displayManager.refresh(it) }
+            sender.sendMessage("§a$nickname 님이 어떤 칭호도 착용할 수 없도록 고정했습니다.")
+            return
+        }
+
+        if (honorManager.honor(idOrNone) == null) {
+            sender.sendMessage("§c존재하지 않는 칭호입니다: $idOrNone")
+            return
+        }
+        honorManager.grant(target.uniqueId, idOrNone)
+        honorManager.equip(target.uniqueId, idOrNone)
+        honorManager.setLocked(target.uniqueId, true)
+        target.player?.let { displayManager.refresh(it) }
+        sender.sendMessage("§a$nickname 님에게 '$idOrNone' 칭호를 강제로 착용시키고 고정했습니다.")
+    }
+
+    private fun handleUnforce(sender: CommandSender, args: Array<out String>) {
+        if (args.size < 2) {
+            sender.sendMessage("§c사용법: /honor unforce <닉네임>")
+            return
+        }
+        val nickname = args[1]
+        val target = offlinePlayer(nickname)
+        honorManager.setLocked(target.uniqueId, false)
+        sender.sendMessage("§a$nickname 님의 칭호 고정을 해제했습니다. 본인이 다시 자유롭게 바꿀 수 있습니다.")
+    }
+
     private fun handleEquip(sender: CommandSender, args: Array<out String>) {
         if (sender !is Player) {
             sender.sendMessage("§c플레이어만 사용할 수 있습니다.")
+            return
+        }
+        if (honorManager.isLocked(sender.uniqueId)) {
+            sender.sendMessage("§c관리자가 칭호를 고정해서 직접 바꿀 수 없습니다.")
             return
         }
         if (args.size < 2) {
@@ -144,6 +200,7 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
         }
         val id = args[1]
         if (honorManager.equip(sender.uniqueId, id)) {
+            displayManager.refresh(sender)
             val display = honorManager.honor(id)?.display ?: id
             sender.sendMessage("§a칭호를 장착했습니다: $display")
         } else {
@@ -156,7 +213,12 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             sender.sendMessage("§c플레이어만 사용할 수 있습니다.")
             return
         }
+        if (honorManager.isLocked(sender.uniqueId)) {
+            sender.sendMessage("§c관리자가 칭호를 고정해서 직접 바꿀 수 없습니다.")
+            return
+        }
         if (honorManager.unequip(sender.uniqueId)) {
+            displayManager.refresh(sender)
             sender.sendMessage("§a칭호를 해제했습니다.")
         } else {
             sender.sendMessage("§c현재 장착 중인 칭호가 없습니다.")
@@ -180,6 +242,9 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             val display = honor?.display ?: id
             val marker = if (id == equippedId) " §a(장착 중)" else ""
             sender.sendMessage("§7- $id: $display$marker")
+        }
+        if (honorManager.isLocked(sender.uniqueId)) {
+            sender.sendMessage("§7(관리자가 칭호를 고정해서 직접 바꿀 수 없습니다)")
         }
     }
 
@@ -209,12 +274,12 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
 
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): List<String> {
         return when {
-            args.size == 1 -> listOf("create", "delete", "grant", "revoke", "equip", "unequip", "mine", "list", "info")
+            args.size == 1 -> listOf("create", "delete", "grant", "revoke", "force", "unforce", "equip", "unequip", "mine", "list", "info")
                 .filter { it.startsWith(args[0].lowercase()) }
             args.size == 2 -> when (args[0].lowercase()) {
                 "delete", "info" ->
                     honorManager.honors().map { it.id }.filter { it.startsWith(args[1], ignoreCase = true) }
-                "grant", "revoke" ->
+                "grant", "revoke", "force", "unforce" ->
                     Bukkit.getOnlinePlayers().map { it.name }.filter { it.startsWith(args[1], ignoreCase = true) }
                 "equip" -> if (sender is Player) {
                     honorManager.grantedTo(sender.uniqueId).mapNotNull { honorManager.honor(it)?.id }
@@ -232,6 +297,8 @@ class HonorCommand(private val honorManager: HonorManager) : CommandExecutor, Ta
             args.size == 3 -> when (args[0].lowercase()) {
                 "grant", "revoke" ->
                     honorManager.honors().map { it.id }.filter { it.startsWith(args[2], ignoreCase = true) }
+                "force" ->
+                    (listOf("none") + honorManager.honors().map { it.id }).filter { it.startsWith(args[2], ignoreCase = true) }
                 else -> emptyList()
             }
             else -> emptyList()
