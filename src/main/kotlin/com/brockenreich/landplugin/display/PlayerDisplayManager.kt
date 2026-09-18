@@ -38,13 +38,13 @@ class PlayerDisplayManager(private val honorManager: HonorManager, private val n
         team.prefix = if (honor != null) "§7[${honor.display}§7]§f " else ""
     }
 
+    // Bukkit's Scoreboard.registerNewTeam(name) still hard-caps the team name at 16 characters
+    // (even on modern versions - this isn't the old prefix/suffix limit, it's a separate one on
+    // the name itself), so a per-player synthetic name like a UUID doesn't fit. The player's own
+    // username is already guaranteed <=16 characters and globally unique, so it doubles as the
+    // team name directly - no prefix needed.
     private fun teamFor(player: Player): Team {
         val board = Bukkit.getScoreboardManager()!!.mainScoreboard
-        val name = TEAM_PREFIX + player.uniqueId
-        return board.getTeam(name) ?: board.registerNewTeam(name)
-    }
-
-    companion object {
-        private const val TEAM_PREFIX = "br_honor_"
+        return board.getTeam(player.name) ?: board.registerNewTeam(player.name)
     }
 }
