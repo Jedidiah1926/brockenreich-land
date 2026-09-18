@@ -6,6 +6,7 @@ import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Directional
 import org.bukkit.entity.Entity
+import org.bukkit.entity.Fireball
 import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
@@ -34,6 +35,7 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityPickupItemEvent
 import org.bukkit.event.entity.ExplosionPrimeEvent
+import org.bukkit.event.entity.PlayerLeashEntityEvent
 import org.bukkit.event.entity.LingeringPotionSplashEvent
 import org.bukkit.event.entity.PotionSplashEvent
 import org.bukkit.event.entity.ProjectileLaunchEvent
@@ -50,9 +52,9 @@ import org.bukkit.event.player.PlayerInteractAtEntityEvent
 import org.bukkit.event.block.SpongeAbsorbEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerInteractEvent
-import org.bukkit.event.player.PlayerLeashEntityEvent
 import org.bukkit.event.world.StructureGrowEvent
 import org.bukkit.inventory.EquipmentSlot
+import org.bukkit.projectiles.BlockProjectileSource
 
 /** Enforces the non-entrance/exit AreaPermission flags against the matching Bukkit events. */
 class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
@@ -256,6 +258,20 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         if (fromArea !== toArea &&
             (fromArea.protections.contains(AreaProtection.DISPENSER) || toArea.protections.contains(AreaProtection.DISPENSER))
         ) {
+            event.isCancelled = true
+        }
+    }
+
+    // A fireball (fire charge -> SmallFireball, and any other Fireball subtype) can fly far past
+    // the one-block crossing check above before it ignites or explodes somewhere else entirely, so
+    // a dispenser sitting in a DISPENSER-protected area is blocked from launching one at all here,
+    // regardless of which way it's facing - the block-place-style neighbor check above isn't
+    // enough to contain something that travels.
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    fun onDispenserFireball(event: ProjectileLaunchEvent) {
+        val fireball = event.entity as? Fireball ?: return
+        val source = fireball.shooter as? BlockProjectileSource ?: return
+        if (areaManager.areaAt(source.block.location).protections.contains(AreaProtection.DISPENSER)) {
             event.isCancelled = true
         }
     }
@@ -477,7 +493,7 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Redstone dust freezes its current whenever any of its six neighbors belongs to a different
+    // Redstone dust freezes its current whenever a *horizontal* neighbor belongs to a different
     // area and either side has REDSTONE protection on - matching the either-side pattern used by
     // piston/dispenser/hopper elsewhere, rather than only ever checking the changing wire's own
     // area. That matters here specifically because BlockRedstoneEvent fires separately per wire
@@ -485,10 +501,16 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
     // (using the *protected* neighbor's flag) to actually stop a signal from leaking out, not just
     // the protected side's own event (which only stops it from leaking in). BlockRedstoneEvent is
     // NOT Cancellable - influence it only via setNewCurrent, and never add ignoreCancelled here.
+    //
+    // Deliberately UP/DOWN are excluded: dust only conducts to adjacent dust sideways, not through
+    // the block it's resting on or the air above it. Checking UP/DOWN used to freeze *every* wire
+    // sitting at the region's floor or ceiling Y level (regions are rarely full world height, so
+    // this hit almost any ground-level build) even when nothing about that wire crossed the region
+    // horizontally - breaking redstone one block past the boundary and everything chained beyond it.
     @EventHandler(priority = EventPriority.LOW)
     fun onBlockRedstone(event: BlockRedstoneEvent) {
         val wireArea = areaManager.areaAt(event.block.location)
-        val faces = arrayOf(BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)
+        val faces = arrayOf(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST)
         val crossesBoundary = faces.any { face ->
             val neighborArea = areaManager.areaAt(event.block.getRelative(face).location)
             neighborArea !== wireArea &&
@@ -524,11 +546,13 @@ class AreaProtectionListener(private val areaManager: AreaManager) : Listener {
         }
     }
 
-    // Any entity (not just players, who are separately gated by the pickupItem permission above)
-    // picking up a dropped item while standing in an ENTITY_PICKUP_ITEM-protected area is blocked -
-    // covers mobs like foxes/villagers scooping up drops inside a protected area.
+    // Non-player entities (mobs like foxes/villagers scooping up drops) picking up an item while
+    // standing in an ENTITY_PICKUP_ITEM-protected area is blocked. Players are excluded here - they're
+    // already separately gated by the pickupItem AreaPermission above, which follows the permission
+    // model (member/grant based), not this structural, cause-agnostic protection.
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     fun onEntityPickupItemProtection(event: EntityPickupItemEvent) {
+        if (event.entity is Player) return
         if (areaManager.areaAt(event.item.location).protections.contains(AreaProtection.ENTITY_PICKUP_ITEM)) {
             event.isCancelled = true
         }

@@ -1,14 +1,15 @@
 package com.brockenreich.landplugin.area
 
+import com.brockenreich.landplugin.guild.GuildManager
+import com.brockenreich.landplugin.util.parseUuidOrNull
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.OfflinePlayer
 import org.bukkit.configuration.file.YamlConfiguration
 import java.io.File
-import java.util.UUID
 import java.util.logging.Logger
 
-class AreaManager(private val dataFolder: File, private val logger: Logger) {
+class AreaManager(private val dataFolder: File, private val logger: Logger, private val guildManager: GuildManager) {
 
     private val file = File(dataFolder, "areas.yml")
     private val regions: MutableMap<String, Area> = mutableMapOf()
@@ -55,6 +56,44 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
         return removed
     }
 
+    /**
+     * Renames a region, keeping all of its data (bounds, members, admins, permissions,
+     * protections, parents, ownerGuild) and rewriting every other region's `parents` references
+     * that pointed at the old name so inherited admin status isn't silently broken.
+     */
+    fun renameRegion(oldName: String, newName: String): Area {
+        val oldKey = oldName.lowercase()
+        val newKey = newName.lowercase()
+        val area = regions[oldKey] ?: throw IllegalArgumentException("존재하지 않는 구역입니다: $oldName")
+        if (newKey != oldKey && regions.containsKey(newKey)) {
+            throw IllegalArgumentException("이미 존재하는 구역 이름입니다: $newName")
+        }
+
+        val renamed = Area(AreaTarget.Region(newName), area.world)
+        renamed.min = area.min
+        renamed.max = area.max
+        renamed.members.addAll(area.members)
+        renamed.admins.addAll(area.admins)
+        renamed.parents.addAll(area.parents)
+        renamed.ownerGuild = area.ownerGuild
+        renamed.permissions.clear()
+        renamed.permissions.addAll(area.permissions)
+        area.playerPermissions.forEach { (uuid, perms) -> renamed.playerPermissions[uuid] = perms.toMutableSet() }
+        renamed.protections.addAll(area.protections)
+
+        regions.remove(oldKey)
+        regions[newKey] = renamed
+
+        regions.values.forEach { other ->
+            if (other.parents.removeIf { it.equals(oldName, ignoreCase = true) }) {
+                other.parents.add(newName)
+            }
+        }
+
+        save()
+        return renamed
+    }
+
     /** The most specific area covering [location]: a region if one contains it, else the world's catch-all area. */
     fun areaAt(location: Location): Area {
         val region = regions.values.firstOrNull { it.contains(location) }
@@ -62,16 +101,20 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
     }
 
     /**
-     * Whether [player] manages [area] as an admin, either directly (area.isAdmin) or by inheritance:
-     * a region with parents is only effectively admin'd by a player who is themselves an effective
-     * admin of *every* one of its parents (AND, not OR) - so losing admin in just one parent drops
-     * the derived admin status here too, with no explicit action needed on this region.
+     * Whether [player] manages [area] as an admin: directly (area.isAdmin), as the leader/officer
+     * of the guild that owns this region (see Area.ownerGuild - a deleted or unset guild just
+     * means nothing here, not an error), or by inheritance - a region with parents is only
+     * effectively admin'd by a player who is themselves an effective admin of *every* one of its
+     * parents (AND, not OR), so losing admin in just one parent drops the derived admin status
+     * here too, with no explicit action needed on this region.
      */
     fun isEffectiveAdmin(player: OfflinePlayer, area: Area): Boolean =
         isEffectiveAdmin(player, area, mutableSetOf())
 
     private fun isEffectiveAdmin(player: OfflinePlayer, area: Area, visiting: MutableSet<String>): Boolean {
         if (area.isAdmin(player)) return true
+        val guild = area.ownerGuild?.let { guildManager.guild(it) }
+        if (guild != null && guild.isOfficerOrAbove(player.uniqueId)) return true
         val target = area.target
         if (target !is AreaTarget.Region) return false
         if (!visiting.add(target.name.lowercase())) return false // cycle guard
@@ -115,29 +158,22 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             val area = Area(AreaTarget.Region(key), worldName)
             area.min = min
             area.max = max
-            area.members.addAll(
-                section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
-            area.admins.addAll(
-                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
+            area.members.addAll(section.getStringList("members").mapNotNull { parseUuidOrNull(it) })
+            area.admins.addAll(section.getStringList("admins").mapNotNull { parseUuidOrNull(it) })
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
             area.protections.addAll(section.getStringList("protections").mapNotNull { AreaProtection.parse(it) })
             area.parents.addAll(section.getStringList("parents"))
+            area.ownerGuild = section.getString("ownerGuild")
             regions[key] = area
         }
 
         yaml.getConfigurationSection("worlds")?.getKeys(false)?.forEach { key ->
             val section = yaml.getConfigurationSection("worlds.$key") ?: return@forEach
             val area = worldArea(key)
-            area.members.addAll(
-                section.getStringList("members").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
-            area.admins.addAll(
-                section.getStringList("admins").mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
-            )
+            area.members.addAll(section.getStringList("members").mapNotNull { parseUuidOrNull(it) })
+            area.admins.addAll(section.getStringList("admins").mapNotNull { parseUuidOrNull(it) })
             area.permissions.clear()
             area.permissions.addAll(section.getStringList("permissions").mapNotNull { AreaPermission.parse(it) })
             loadPlayerPermissions(section, area)
@@ -151,7 +187,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
         area.playerPermissions.clear()
         val playersSection = section.getConfigurationSection("playerPermissions") ?: return
         playersSection.getKeys(false).forEach { uuidKey ->
-            val uuid = runCatching { UUID.fromString(uuidKey) }.getOrNull() ?: return@forEach
+            val uuid = parseUuidOrNull(uuidKey) ?: return@forEach
             val perms = playersSection.getStringList(uuidKey).mapNotNull { AreaPermission.parse(it) }.toMutableSet()
             if (perms.isNotEmpty()) {
                 area.playerPermissions[uuid] = perms
@@ -183,6 +219,7 @@ class AreaManager(private val dataFolder: File, private val logger: Logger) {
             }
             yaml.set("$base.protections", area.protections.map { it.name })
             yaml.set("$base.parents", area.parents.toList())
+            area.ownerGuild?.let { yaml.set("$base.ownerGuild", it) }
         }
 
         worldAreas.forEach { (key, area) ->

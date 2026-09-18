@@ -12,6 +12,18 @@ commands:
   farm:
     description: Enchant a held farm item so it can be planted with fixed-time growth.
     usage: /<command> <animate|time test [초]|time default>
+  guild:
+    description: Manage player-run guilds, which can own land.
+    usage: /<command> <create|disband|invite|kick|promote|demote|leave|info|list> ...
+  honor:
+    description: Manage equippable honors/titles shown in chat, the tab list, and above a player's head.
+    usage: /<command> <create|delete|grant|revoke|force|unforce|equip|unequip|mine|list|info> ...
+  nickname:
+    description: Set a fixed display nickname (tab list + nametag) instead of your Minecraft account name.
+    usage: /<command> <새 닉네임|reset|<플레이어> reset|<플레이어> <새 닉네임>>
+  money:
+    description: Check balances and transfer the server's currency (ȼ).
+    usage: /<command> [balance <플레이어>|pay <플레이어> <금액>|give|take|set|top]
 permissions:
   brockenreichland.area:
     description: Manage land areas
@@ -21,4 +33,13 @@ permissions:
     default: op
   brockenreichland.farm.admin:
     description: Override farm crop growth times for testing
+    default: op
+  brockenreichland.honor.admin:
+    description: Create/delete honors, grant/revoke them, and force/unforce a player's equipped honor
+    default: op
+  brockenreichland.nickname.admin:
+    description: Set or reset another player's nickname
+    default: op
+  brockenreichland.economy.admin:
+    description: Give/take/set another player's balance
     default: op
